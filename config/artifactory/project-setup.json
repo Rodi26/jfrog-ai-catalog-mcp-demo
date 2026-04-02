@@ -1,0 +1,59 @@
+{
+  "demo_repositories": [
+    {
+      "key": "jfrog-ai-demo-huggingface-remote",
+      "type": "remote",
+      "packageType": "machinelearning",
+      "description": "Proxy and cache for Hugging Face Hub models — governed access point",
+      "url": "https://huggingface.co",
+      "repoLayoutRef": "simple-default",
+      "xrayIndex": true,
+      "assumedOfflinePeriodSecs": 300,
+      "retrievalCachePeriodSecs": 43200,
+      "failedRetrievalCachePeriodSecs": 30,
+      "unusedArtifactsCleanupEnabled": false,
+      "storeArtifactsLocally": true
+    },
+    {
+      "key": "jfrog-ai-demo-models-local",
+      "type": "local",
+      "packageType": "machinelearning",
+      "description": "Local store for approved and internally promoted AI models",
+      "repoLayoutRef": "simple-default",
+      "xrayIndex": true,
+      "blackedOut": false
+    },
+    {
+      "key": "jfrog-ai-demo-virtual",
+      "type": "virtual",
+      "packageType": "machinelearning",
+      "description": "Unified governed access point for all AI models. Developers should always pull from here.",
+      "repositories": [
+        "jfrog-ai-demo-models-local",
+        "jfrog-ai-demo-huggingface-remote"
+      ],
+      "defaultDeploymentRepo": "jfrog-ai-demo-models-local",
+      "repoLayoutRef": "simple-default"
+    }
+  ],
+  "demo_seed_models": [
+    {
+      "name": "facebook/bart-large-cnn",
+      "status": "approved",
+      "description": "Clean code summarization model — demo approved asset",
+      "note": "This model is pre-seeded as the 'safe' model in Act 2"
+    },
+    {
+      "name": "microsoft/codebert-base",
+      "status": "blocked",
+      "description": "Model with simulated pickle payload — demo security threat",
+      "note": "This model is pre-seeded as the 'blocked' model in Act 2. Requires a pre-seeded scan result."
+    },
+    {
+      "name": "salesforce/codet5-base",
+      "status": "approved",
+      "description": "Alternative clean model — shows multiple approved options",
+      "note": "Used in Act 1 as a second approved candidate"
+    }
+  ]
+}

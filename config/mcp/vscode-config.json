@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "jfrog": {
+      "type": "sse",
+      "url": "YOUR_JFROG_URL/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN"
+      }
+    }
+  }
+}

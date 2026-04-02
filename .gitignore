@@ -1,0 +1,39 @@
+# Environment
+.env
+*.env
+.env.*
+
+# Secrets — never commit these
+*access_token*
+*api_key*
+*.token
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# Node
+node_modules/
+
+# JFrog CLI config (contains credentials)
+.jfrog/
+
+# Demo artifacts (not committed — generated per-run)
+demo-assets/screenshots/*.png
+demo-assets/screenshots/*.jpg

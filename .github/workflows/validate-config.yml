@@ -1,0 +1,151 @@
+name: Validate Demo Configurations
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'config/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'config/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+
+jobs:
+  validate-json:
+    name: Validate JSON Configuration Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate MCP Claude Desktop config
+        run: |
+          echo "Validating config/mcp/claude-desktop-config.json..."
+          python3 -m json.tool config/mcp/claude-desktop-config.json > /dev/null
+          echo "✓ claude-desktop-config.json is valid JSON"
+
+      - name: Validate MCP Cursor config
+        run: |
+          echo "Validating config/mcp/cursor-config.json..."
+          python3 -m json.tool config/mcp/cursor-config.json > /dev/null
+          echo "✓ cursor-config.json is valid JSON"
+
+      - name: Validate MCP VS Code config
+        run: |
+          echo "Validating config/mcp/vscode-config.json..."
+          python3 -m json.tool config/mcp/vscode-config.json > /dev/null
+          echo "✓ vscode-config.json is valid JSON"
+
+      - name: Validate curation policy
+        run: |
+          echo "Validating config/artifactory/curation-policy.json..."
+          python3 -m json.tool config/artifactory/curation-policy.json > /dev/null
+          echo "✓ curation-policy.json is valid JSON"
+
+      - name: Validate project setup
+        run: |
+          echo "Validating config/artifactory/project-setup.json..."
+          python3 -m json.tool config/artifactory/project-setup.json > /dev/null
+          echo "✓ project-setup.json is valid JSON"
+
+      - name: Validate Xray security policy
+        run: |
+          echo "Validating config/xray/security-policy.json..."
+          python3 -m json.tool config/xray/security-policy.json > /dev/null
+          echo "✓ security-policy.json is valid JSON"
+
+      - name: Check for unresolved placeholder values
+        run: |
+          echo "Checking for unresolved YOUR_JFROG_URL placeholders..."
+          count=$(grep -r "YOUR_JFROG_URL" config/ --include="*.json" | wc -l)
+          echo "Found $count placeholder references in config/*.json (expected — these are templates)"
+          # This is expected — configs ship with placeholders; warn but don't fail
+          echo "✓ Placeholder check complete (templates are expected to have placeholders)"
+
+  validate-scripts:
+    name: Validate Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck on setup.sh
+        run: |
+          shellcheck scripts/setup.sh
+          echo "✓ setup.sh passes shellcheck"
+
+      - name: Run shellcheck on reset.sh
+        run: |
+          shellcheck scripts/reset.sh
+          echo "✓ reset.sh passes shellcheck"
+
+      - name: Run shellcheck on validate.sh
+        run: |
+          shellcheck scripts/validate.sh
+          echo "✓ validate.sh passes shellcheck"
+
+      - name: Run shellcheck on create-repos.sh
+        run: |
+          shellcheck config/artifactory/create-repos.sh
+          echo "✓ create-repos.sh passes shellcheck"
+
+      - name: Check script executability
+        run: |
+          for script in scripts/setup.sh scripts/reset.sh scripts/validate.sh; do
+            if [[ -x "$script" ]]; then
+              echo "✓ $script is executable"
+            else
+              echo "✗ $script is not executable — run: chmod +x $script"
+              exit 1
+            fi
+          done
+
+  validate-docs:
+    name: Validate Documentation Structure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required files exist
+        run: |
+          required_files=(
+            "README.md"
+            "DEMO.md"
+            "QUICKSTART.md"
+            "docs/architecture.md"
+            "docs/prerequisites.md"
+            "docs/setup-guide.md"
+            "docs/demo-script.md"
+            "docs/talking-points.md"
+            "docs/troubleshooting.md"
+            "docs/faq.md"
+            "scripts/demo-prompts.txt"
+            "demo-assets/expected-outputs/mcp-session-transcript.md"
+          )
+
+          all_present=true
+          for f in "${required_files[@]}"; do
+            if [[ -f "$f" ]]; then
+              echo "✓ $f"
+            else
+              echo "✗ Missing: $f"
+              all_present=false
+            fi
+          done
+
+          if [[ "$all_present" == "false" ]]; then
+            echo ""
+            echo "One or more required files are missing."
+            exit 1
+          fi
+
+          echo ""
+          echo "All required documentation files present."

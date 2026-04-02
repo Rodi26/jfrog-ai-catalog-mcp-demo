@@ -1,0 +1,78 @@
+{
+  "name": "ai-catalog-security-policy",
+  "description": "Xray security policy for AI and Machine Learning artifacts. Scans for malicious code, CVEs, and license violations in all AI assets.",
+  "type": "security",
+  "rules": [
+    {
+      "name": "block-critical-vulnerabilities",
+      "priority": 1,
+      "criteria": {
+        "minSeverity": "Critical",
+        "fixVersionDependency": false
+      },
+      "actions": {
+        "webhooks": [],
+        "mails": [],
+        "failBuild": true,
+        "blockDownload": {
+          "active": true,
+          "unscanned": false
+        },
+        "blockReleaseBundleDistribution": {
+          "active": true,
+          "unscanned": false
+        },
+        "blockReleaseBundlePromotion": {
+          "active": true,
+          "unscanned": false
+        },
+        "notifyDeployer": true,
+        "notifyWatchRecipients": true,
+        "createTicketEnabled": false
+      }
+    },
+    {
+      "name": "block-malicious-code",
+      "priority": 2,
+      "criteria": {
+        "maliciousPackage": true
+      },
+      "actions": {
+        "webhooks": [],
+        "mails": [],
+        "failBuild": true,
+        "blockDownload": {
+          "active": true,
+          "unscanned": true
+        },
+        "blockReleaseBundleDistribution": {
+          "active": true,
+          "unscanned": true
+        },
+        "notifyDeployer": true,
+        "notifyWatchRecipients": true,
+        "createTicketEnabled": false
+      }
+    },
+    {
+      "name": "warn-high-vulnerabilities",
+      "priority": 3,
+      "criteria": {
+        "minSeverity": "High",
+        "fixVersionDependency": false
+      },
+      "actions": {
+        "webhooks": [],
+        "mails": [],
+        "failBuild": false,
+        "blockDownload": {
+          "active": false,
+          "unscanned": false
+        },
+        "notifyDeployer": true,
+        "notifyWatchRecipients": true,
+        "createTicketEnabled": false
+      }
+    }
+  ]
+}

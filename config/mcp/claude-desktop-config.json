@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "jfrog": {
+      "type": "sse",
+      "url": "YOUR_JFROG_URL/mcp/sse",
+      "description": "JFrog Platform MCP Server — AI Catalog, Artifactory, Xray",
+      "headers": {
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN"
+      }
+    }
+  }
+}

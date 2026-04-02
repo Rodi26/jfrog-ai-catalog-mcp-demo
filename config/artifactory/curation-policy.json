@@ -1,0 +1,36 @@
+{
+  "name": "block-malicious-ai-models",
+  "description": "Block Hugging Face models with malicious payloads or critical vulnerabilities. Applies to all Machine Learning package type artifacts.",
+  "type": "security",
+  "packageType": "machinelearning",
+  "actions": {
+    "blockDownload": {
+      "active": true,
+      "unscanned": false
+    },
+    "notify": {
+      "emailRecipients": []
+    }
+  },
+  "conditions": [
+    {
+      "type": "cvss",
+      "operator": ">=",
+      "value": "9.0",
+      "description": "Block models with critical CVSS severity (9.0+)"
+    },
+    {
+      "type": "maliciousCode",
+      "operator": "is",
+      "value": "true",
+      "description": "Block models with detected malicious code (pickle payloads, ONNX backdoors)"
+    },
+    {
+      "type": "license",
+      "operator": "in",
+      "value": ["Unknown", "AGPL-3.0"],
+      "description": "Block models with unknown or non-compliant licenses"
+    }
+  ],
+  "active": true
+}

@@ -1,0 +1,140 @@
+JFrog AI Catalog MCP Demo — Copy-Paste Prompts
+================================================
+
+Use these exact prompts during the demo. Each prompt is designed to trigger
+the right JFrog MCP tool calls for each act.
+
+Copy entire blocks (including the --- markers are just for navigation,
+don't copy those).
+
+=== ACT 1 — Model Discovery via MCP ===
+
+Paste this into Claude Desktop or Cursor:
+
+---BEGIN PROMPT---
+I need to find Hugging Face models suitable for code summarization.
+Show me what's available in JFrog, check their curation status,
+and flag any known vulnerabilities.
+---END PROMPT---
+
+EXPECTED TOOL CALLS:
+1. jfrog_get_package_info (packageType: huggingface)
+2. jfrog_get_package_curation_status (for each model)
+3. jfrog_get_package_version_vulnerabilities (for flagged models)
+
+EXPECTED OUTCOME:
+- List of 3 models: facebook/bart-large-cnn, microsoft/codebert-base, salesforce/codet5-base
+- microsoft/codebert-base flagged as BLOCKED (pickle payload, Critical severity)
+- Two models showing APPROVED status
+
+
+
+=== ACT 2 — Follow-up Security Query (Optional Extension) ===
+
+Use if audience wants to dig deeper into the blocked model:
+
+---BEGIN PROMPT---
+Tell me more about the security issues with microsoft/codebert-base.
+What exactly was found, what's the attack vector, and why was it blocked?
+---END PROMPT---
+
+EXPECTED TOOL CALLS:
+1. jfrog_get_package_version_vulnerabilities (microsoft/codebert-base)
+2. jfrog_get_package_curation_status (microsoft/codebert-base)
+
+EXPECTED OUTCOME:
+- Pickle payload details (file name, CVE ID if available, CVSS score)
+- Curation policy that triggered the block
+- Clear articulation that it was automatically blocked, not manually reviewed
+
+
+
+=== ACT 3 — MCP Project Setup ===
+
+Paste this into Claude Desktop or Cursor:
+
+---BEGIN PROMPT---
+Create a new JFrog project called "ml-code-review" and set up
+repositories for a Python ML pipeline:
+- a local repository for storing approved models
+- a remote HuggingFace proxy repository
+- a virtual repository that aggregates both with "ml-" prefix
+
+Use appropriate settings for a machine learning project.
+---END PROMPT---
+
+EXPECTED TOOL CALLS:
+1. create_project (key: ml-code-review)
+2. create_local_repository (key: ml-models-local, packageType: machinelearning)
+3. create_remote_repository (key: ml-huggingface-remote, url: https://huggingface.co)
+4. create_virtual_repository (key: ml-models-virtual, includes both repos above)
+
+EXPECTED OUTCOME:
+- Project created: ml-code-review
+- 3 repositories created with correct settings
+- Developer pull URL shown: https://yourcompany.jfrog.io/ml-models-virtual
+
+
+
+=== ACT 3 — Follow-up (Optional) ===
+
+Shows governance awareness after setup:
+
+---BEGIN PROMPT---
+Show me the curation status and security policies that apply to
+the ml-code-review project we just created.
+---END PROMPT---
+
+EXPECTED TOOL CALLS:
+1. jfrog_get_package_curation_status (for ml-models-virtual)
+2. Possibly: list policies or watches
+
+EXPECTED OUTCOME:
+- Inherited policies from the organization default
+- Shows security policies are automatically applied to new repos
+
+
+
+=== ACT 1 — Alternative Discovery (Simpler) ===
+
+Use this if the audience prefers a less technical framing:
+
+---BEGIN PROMPT---
+Search JFrog for any available Hugging Face models related to
+code or text summarization. For each one, tell me if it's safe
+to use and whether JFrog has approved it for our organization.
+---END PROMPT---
+
+EXPECTED TOOL CALLS:
+Same as Act 1 main prompt.
+
+
+
+=== TROUBLESHOOTING PROMPTS ===
+
+If MCP tools are not triggering, use this diagnostic prompt:
+
+---BEGIN PROMPT---
+List all the JFrog tools and capabilities you have available
+through your MCP connection.
+---END PROMPT---
+
+This confirms the MCP server is connected and lists available tools.
+
+If repositories are not visible:
+
+---BEGIN PROMPT---
+List all repositories in my JFrog Artifactory instance.
+---END PROMPT---
+
+This confirms basic connectivity and shows all repos, including demo ones.
+
+
+
+=== NOTES FOR PRESENTER ===
+
+- Always copy the full prompt between ---BEGIN PROMPT--- and ---END PROMPT---
+- Paste into the AI assistant message input, then hit Enter
+- Wait for ALL tool calls to complete before speaking — usually 3-8 seconds per call
+- If a tool call shows an error, fall back to the offline transcript
+- See demo-assets/expected-outputs/mcp-session-transcript.md for the offline fallback
