@@ -1,7 +1,8 @@
-# Environment
+# Environment — never commit these
 .env
 *.env
 .env.*
+app/.env
 
 # Secrets — never commit these
 *access_token*

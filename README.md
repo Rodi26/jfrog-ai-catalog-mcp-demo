@@ -149,7 +149,24 @@ See [`docs/prerequisites.md`](docs/prerequisites.md) for details.
 
 ---
 
-## Getting Started
+## Runnable Application
+
+The `app/` directory contains a real Python application you can run locally:
+
+```bash
+cd app
+pip install -r requirements.txt
+cp .env.example .env   # fill in your JFrog URL, project token, and AI Gateway URL
+python code_review.py sample_code.py
+```
+
+It calls the **JFrog AI Gateway** with a project-scoped token to review code — demonstrating that all AI inference routes through JFrog governance, never the provider directly.
+
+See [`app/README.md`](app/README.md) for full setup instructions.
+
+---
+
+## Getting Started (Infrastructure + Demo)
 
 ```bash
 git clone https://github.com/Rodi26/jfrog-ai-catalog-mcp-demo.git
