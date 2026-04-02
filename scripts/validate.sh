@@ -128,7 +128,7 @@ echo ""
 echo "Checking MCP configuration..."
 
 CLAUDE_CONFIG_MAC="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
-CLAUDE_CONFIG_WIN="$APPDATA/Claude/claude_desktop_config.json" 2>/dev/null || true
+CLAUDE_CONFIG_WIN="${APPDATA:-}/Claude/claude_desktop_config.json"
 
 if [[ -f "$CLAUDE_CONFIG_MAC" ]]; then
   check_pass "Claude Desktop MCP config found: $CLAUDE_CONFIG_MAC"

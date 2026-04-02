@@ -176,38 +176,42 @@ create_repo_if_missing "jfrog-ai-demo-virtual" \
 echo ""
 echo "Applying curation policy..."
 
-CURATION_POLICY_FILE="$REPO_ROOT/config/artifactory/curation-policy.json"
-if [[ -f "$CURATION_POLICY_FILE" ]]; then
-  response=$(jf xr curl --server-id="$JFROG_SERVER_ID" -sS -X POST -H "Content-Type: application/json" \
-    -d @"$CURATION_POLICY_FILE" \
-    "/api/v1/policies" 2>&1) || true
-  if echo "$response" | grep -q "already exists" 2>/dev/null; then
-    warn "Curation policy already exists — skipping"
-  else
-    ok "Curation policy applied: block-malicious-ai-models"
+apply_xray_policy() {
+  local policy_file="$1"
+  local policy_name="$2"
+  local label="$3"
+
+  if [[ ! -f "$policy_file" ]]; then
+    warn "$label file not found: $policy_file — skipping"
+    return
   fi
-else
-  warn "Curation policy file not found — skipping"
-fi
+
+  response=$(jf xr curl --server-id="$JFROG_SERVER_ID" -sS -w "\nHTTP_CODE:%{http_code}" \
+    -X POST -H "Content-Type: application/json" \
+    -d @"$policy_file" \
+    "/api/v1/policies" 2>&1) || true
+  http_code=$(echo "$response" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+
+  if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
+    ok "$label applied: $policy_name"
+  elif echo "$response" | grep -q "already exists" 2>/dev/null; then
+    warn "$label '$policy_name' already exists — skipping"
+  else
+    warn "$label creation failed (HTTP $http_code). Response:"
+    echo "$response" | grep -v 'HTTP_CODE:' | head -5
+  fi
+}
+
+apply_xray_policy "$REPO_ROOT/config/artifactory/curation-policy.json" \
+  "block-malicious-ai-models" "Curation policy"
 
 # --- Apply Xray security policy ---
 
 echo ""
 echo "Applying Xray security policy..."
 
-XRAY_POLICY_FILE="$REPO_ROOT/config/xray/security-policy.json"
-if [[ -f "$XRAY_POLICY_FILE" ]]; then
-  response=$(jf xr curl --server-id="$JFROG_SERVER_ID" -sS -X POST -H "Content-Type: application/json" \
-    -d @"$XRAY_POLICY_FILE" \
-    "/api/v1/policies" 2>&1) || true
-  if echo "$response" | grep -q "already exists" 2>/dev/null; then
-    warn "Xray policy already exists — skipping"
-  else
-    ok "Xray security policy applied: ai-catalog-security-policy"
-  fi
-else
-  warn "Xray policy file not found — skipping"
-fi
+apply_xray_policy "$REPO_ROOT/config/xray/security-policy.json" \
+  "ai-catalog-security-policy" "Xray security policy"
 
 # --- Manual steps reminder ---
 
