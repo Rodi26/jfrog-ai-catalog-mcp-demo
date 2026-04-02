@@ -48,7 +48,7 @@ echo "Creating JFrog AI Catalog demo repositories..."
 create_or_skip "jfrog-ai-demo-huggingface-remote" '{
   "key": "jfrog-ai-demo-huggingface-remote",
   "rclass": "remote",
-  "packageType": "machinelearning",
+  "packageType": "huggingfaceml",
   "url": "https://huggingface.co",
   "description": "Proxy and cache for Hugging Face Hub models",
   "xrayIndex": true,
@@ -61,7 +61,7 @@ create_or_skip "jfrog-ai-demo-huggingface-remote" '{
 create_or_skip "jfrog-ai-demo-models-local" '{
   "key": "jfrog-ai-demo-models-local",
   "rclass": "local",
-  "packageType": "machinelearning",
+  "packageType": "huggingfaceml",
   "description": "Local store for approved and internally promoted AI models",
   "xrayIndex": true
 }' "local repository"
@@ -70,7 +70,7 @@ create_or_skip "jfrog-ai-demo-models-local" '{
 create_or_skip "jfrog-ai-demo-virtual" '{
   "key": "jfrog-ai-demo-virtual",
   "rclass": "virtual",
-  "packageType": "machinelearning",
+  "packageType": "huggingfaceml",
   "description": "Unified governed access point for all AI models",
   "repositories": ["jfrog-ai-demo-models-local", "jfrog-ai-demo-huggingface-remote"],
   "defaultDeploymentRepo": "jfrog-ai-demo-models-local"

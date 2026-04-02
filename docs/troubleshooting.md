@@ -77,6 +77,28 @@ It checks all critical dependencies. Fix anything it reports red before investig
 
 ## Setup Script Issues
 
+### `setup.sh` fails: "Failed to create repository: jfrog-ai-demo-huggingface-remote"
+
+**Cause:** This was a bug in earlier versions of the script — `packageType` was incorrectly set to `machinelearning`. The correct value for HuggingFace repositories is `huggingfaceml`.
+
+**Fix:** Pull the latest version of the repo and re-run:
+
+```bash
+git pull origin main
+./scripts/setup.sh
+```
+
+If the error persists, check the HTTP status and response body printed by the script (v2+ shows diagnostic output on failure instead of just `[✗] Failed`).
+
+**Manual fallback:** Create the repository in the Artifactory UI:
+1. Artifactory → Repositories → Add Repository → Remote
+2. Package Type: `HuggingFace ML`
+3. Repository Key: `jfrog-ai-demo-huggingface-remote`
+4. URL: `https://huggingface.co`
+5. Enable Xray indexing
+
+---
+
 ### `setup.sh` fails: "jf: command not found"
 
 Install JFrog CLI:

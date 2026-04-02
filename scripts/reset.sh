@@ -9,7 +9,7 @@
 # WARNING: This deletes jfrog-ai-demo-* repositories and their contents.
 # Only run this on a dedicated demo tenant.
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"

@@ -22,7 +22,7 @@
 # Optional:
 #   JFROG_SERVER_ID     — JFrog CLI server ID (default: jfrog-demo)
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -117,7 +117,7 @@ create_repo_if_missing() {
   local payload="$2"
   local label="$3"
 
-  status=$(curl -sf -o /dev/null -w "%{http_code}" \
+  status=$(curl -s -o /dev/null -w "%{http_code}" \
     -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
     "$JFROG_URL/artifactory/api/repositories/$key" 2>/dev/null || echo "000")
 
@@ -126,29 +126,47 @@ create_repo_if_missing() {
     return
   fi
 
-  curl -sf -X PUT \
+  # Capture both the response body and HTTP status for diagnostics
+  response=$(curl -s -w "\n%{http_code}" -X PUT \
     -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
     "$JFROG_URL/artifactory/api/repositories/$key" \
-    -d "$payload" >/dev/null && ok "Created $label: $key" || \
-    fail "Failed to create repository: $key"
+    -d "$payload" 2>&1)
+
+  http_status=$(echo "$response" | tail -1)
+  body=$(echo "$response" | head -n -1)
+
+  if [[ "$http_status" == "200" ]] || [[ "$http_status" == "201" ]]; then
+    ok "Created $label: $key"
+  else
+    echo -e "${RED}[✗]${NC} Failed to create $label: $key"
+    echo "    HTTP status: $http_status"
+    echo "    Response: $body"
+    echo "    → Create this repository manually in the Artifactory UI."
+    SETUP_HAD_ERRORS=true
+  fi
 }
+
+SETUP_HAD_ERRORS=false
+
+# NOTE: packageType must be "huggingfaceml" (not "machinelearning") for HuggingFace repos
+# Reference: https://docs.jfrog.com/artifactory/docs/hugging-face-repositories
 
 create_repo_if_missing "jfrog-ai-demo-huggingface-remote" '{
   "key": "jfrog-ai-demo-huggingface-remote",
   "rclass": "remote",
-  "packageType": "machinelearning",
+  "packageType": "huggingfaceml",
   "url": "https://huggingface.co",
   "description": "Proxy and cache for Hugging Face Hub models",
   "xrayIndex": true,
   "storeArtifactsLocally": true,
-  "assumedOfflinePeriodSecs": 300
+  "assumedOfflinePeriodSecs": 30
 }' "remote repository"
 
 create_repo_if_missing "jfrog-ai-demo-models-local" '{
   "key": "jfrog-ai-demo-models-local",
   "rclass": "local",
-  "packageType": "machinelearning",
+  "packageType": "huggingfaceml",
   "description": "Local store for approved AI models in the ml-code-review project",
   "xrayIndex": true
 }' "local repository"
@@ -156,7 +174,7 @@ create_repo_if_missing "jfrog-ai-demo-models-local" '{
 create_repo_if_missing "jfrog-ai-demo-virtual" '{
   "key": "jfrog-ai-demo-virtual",
   "rclass": "virtual",
-  "packageType": "machinelearning",
+  "packageType": "huggingfaceml",
   "description": "Unified governed access point. Developers pull from here.",
   "repositories": ["jfrog-ai-demo-models-local", "jfrog-ai-demo-huggingface-remote"],
   "defaultDeploymentRepo": "jfrog-ai-demo-models-local"
@@ -234,7 +252,11 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 echo ""
 echo "============================================"
-echo -e "${GREEN}  Automated setup complete!${NC}"
+if [[ "$SETUP_HAD_ERRORS" == "true" ]]; then
+  echo -e "${YELLOW}  Setup complete with warnings — see above${NC}"
+else
+  echo -e "${GREEN}  Automated setup complete!${NC}"
+fi
 echo "============================================"
 echo ""
 echo "  Created:"

@@ -91,7 +91,7 @@
     {
       "key": "jfrog-ai-demo-huggingface-remote",
       "type": "remote",
-      "packageType": "machinelearning",
+      "packageType": "huggingfaceml",
       "description": "Proxy and cache for Hugging Face Hub models — governed access point",
       "url": "https://huggingface.co",
       "xrayIndex": true,
@@ -100,14 +100,14 @@
     {
       "key": "jfrog-ai-demo-models-local",
       "type": "local",
-      "packageType": "machinelearning",
+      "packageType": "huggingfaceml",
       "description": "Local store for approved and internally promoted AI models",
       "xrayIndex": true
     },
     {
       "key": "jfrog-ai-demo-virtual",
       "type": "virtual",
-      "packageType": "machinelearning",
+      "packageType": "huggingfaceml",
       "description": "Unified governed access point for all AI models. Developers pull from here.",
       "repositories": [
         "jfrog-ai-demo-models-local",

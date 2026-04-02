@@ -2,7 +2,7 @@
   "name": "block-malicious-ai-models",
   "description": "Block Hugging Face models with malicious payloads or critical vulnerabilities. Applies to all Machine Learning package type artifacts.",
   "type": "security",
-  "packageType": "machinelearning",
+  "packageType": "huggingfaceml",
   "actions": {
     "blockDownload": {
       "active": true,
