@@ -1,5 +1,7 @@
 {
   "key": "jfrog-ai-demo-virtual",
+  "projectKey": "ml-code-review",
+  "environments": ["DEV"],
   "rclass": "virtual",
   "packageType": "huggingfaceml",
   "description": "Unified governed access point. Developers pull from here.",

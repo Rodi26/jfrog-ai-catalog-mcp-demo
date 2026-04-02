@@ -12,7 +12,7 @@
 #
 # Note on Connections and Model Allowances:
 #   Provider Connections and model allowances must be configured via the
-#   JFrog AI Catalog UI (AI/ML Settings > Connections) — they are not
+#   JFrog AI Catalog UI (AI/ML > AI Catalog > Connections) — they are not
 #   accessible via the JFrog CLI or standard REST API.
 #   See docs/setup-guide.md for the manual steps.
 #
@@ -171,6 +171,30 @@ create_repo_if_missing "jfrog-ai-demo-virtual" \
   "$REPO_ROOT/config/artifactory/repos/jfrog-ai-demo-virtual.json" \
   "virtual repository"
 
+# --- Assign repositories to project ---
+
+echo ""
+echo "Assigning repositories to project '$PROJECT_KEY'..."
+
+assign_repo_to_project() {
+  local repo_key="$1"
+  local project_key="$2"
+  local http_code
+  http_code=$(curl -sS -o /dev/null -w "%{http_code}" \
+    -X PUT \
+    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
+    "$JFROG_URL/access/api/v1/projects/_/attach/repositories/$repo_key/$project_key?force=true" 2>/dev/null) || true
+  if [[ "$http_code" == "200" || "$http_code" == "409" ]]; then
+    ok "Repository '$repo_key' assigned to project '$project_key'"
+  else
+    warn "Could not assign '$repo_key' to project '$project_key' (HTTP $http_code)"
+  fi
+}
+
+assign_repo_to_project "jfrog-ai-demo-huggingface-remote" "$PROJECT_KEY"
+assign_repo_to_project "jfrog-ai-demo-models-local" "$PROJECT_KEY"
+assign_repo_to_project "jfrog-ai-demo-virtual" "$PROJECT_KEY"
+
 # --- Apply curation policy ---
 
 echo ""
@@ -223,7 +247,7 @@ echo ""
 echo "  The following must be done via the JFrog AI Catalog UI:"
 echo "  (API access for these is not available in the current beta)"
 echo ""
-echo "  1. Create Provider Connections (AI/ML Settings > Connections):"
+echo "  1. Create Provider Connections (AI/ML > AI Catalog > Connections):"
 echo "     • ml-openai-connection      → Project: ml-code-review, Provider: OpenAI"
 echo "     • ml-huggingface-connection → Project: ml-code-review, Provider: HuggingFace"
 echo ""

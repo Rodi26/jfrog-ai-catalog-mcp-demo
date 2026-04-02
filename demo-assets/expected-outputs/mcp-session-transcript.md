@@ -24,7 +24,7 @@ Admin Privileges: Manage Members ✓  Manage Resources ✓  Index Resources ✓
 
 ---
 
-### Connections: AI/ML Settings → Connections
+### Connections: AI/ML → AI Catalog → Connections
 
 ```
 Connections in ml-code-review:

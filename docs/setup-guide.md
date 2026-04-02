@@ -59,7 +59,7 @@ This creates:
 
 Provider Connections bind a `(provider, project)` pair to stored credentials. Each connection is unique per pair.
 
-**Navigate to:** AI/ML Settings → Connections → Create new connection
+**Navigate to:** AI/ML → AI Catalog → Connections → Create new connection
 
 **Connection 1 — OpenAI for ml-code-review:**
 - Name: `ml-openai-connection`

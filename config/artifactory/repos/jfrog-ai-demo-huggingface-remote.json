@@ -1,5 +1,7 @@
 {
   "key": "jfrog-ai-demo-huggingface-remote",
+  "projectKey": "ml-code-review",
+  "environments": ["DEV"],
   "rclass": "remote",
   "packageType": "huggingfaceml",
   "url": "https://huggingface.co",

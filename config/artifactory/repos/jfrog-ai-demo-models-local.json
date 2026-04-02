@@ -1,5 +1,7 @@
 {
   "key": "jfrog-ai-demo-models-local",
+  "projectKey": "ml-code-review",
+  "environments": ["DEV"],
   "rclass": "local",
   "packageType": "huggingfaceml",
   "description": "Local store for approved AI models in the ml-code-review project",

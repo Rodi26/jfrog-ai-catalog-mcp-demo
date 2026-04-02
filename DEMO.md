@@ -15,7 +15,7 @@
 - [ ] Run `./scripts/validate.sh` — all checks must pass
 - [ ] Log into JFrog SaaS as Admin — navigate to **AI/ML > Discovery**
 - [ ] Verify the demo project `ml-code-review` exists in **Administration > Projects**
-- [ ] Verify connections exist for OpenAI and HuggingFace in **AI/ML Settings > Connections**
+- [ ] Verify connections exist for OpenAI and HuggingFace in **AI/ML > AI Catalog > Connections**
 - [ ] Have `scripts/demo-prompts.txt` open in a side window
 - [ ] Run `./scripts/reset.sh` if you've demoed before
 
@@ -53,7 +53,7 @@
 
 ### 1.2 — Show Provider Connections
 
-**Navigate to:** AI/ML Settings → Connections
+**Navigate to:** AI/ML → AI Catalog → Connections
 
 **Point out:**
 - Connection `ml-openai-connection` — bound to `ml-code-review` project, provider: OpenAI

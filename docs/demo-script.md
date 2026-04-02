@@ -12,7 +12,7 @@ Presenter reference with exact steps, expected UI states, and talking points for
 1. Run `./scripts/validate.sh` — confirm all green
 2. Log into JFrog SaaS as admin — navigate to **Administration → Projects**
 3. Confirm `ml-code-review` project exists
-4. Navigate to **AI/ML Settings → Connections** — confirm two connections exist
+4. Navigate to **AI/ML → AI Catalog → Connections** — confirm two connections exist
 5. Navigate to **AI/ML → Discovery** — confirm models are visible
 6. Have `scripts/demo-prompts.txt` open for Act 4 MCP Gateway commands
 7. Run `./scripts/reset.sh` if this is not the first demo run of the day
@@ -49,7 +49,7 @@ Presenter reference with exact steps, expected UI states, and talking points for
 
 ### Step 1.2 — Show Provider Connections
 
-**Navigate to:** AI/ML Settings → Connections
+**Navigate to:** AI/ML → AI Catalog → Connections
 
 **UI elements to show:**
 - `ml-openai-connection` — project: `ml-code-review`, provider: OpenAI
