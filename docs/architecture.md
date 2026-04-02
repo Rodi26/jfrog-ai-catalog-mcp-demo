@@ -1,174 +1,152 @@
 # Architecture Overview
 
-## System Diagram
+## The Project-Based Governance Model
+
+The central design principle of JFrog AI Catalog is: **a Project is the governance boundary for all AI consumption.** Every significant action — allowing a model, connecting a provider, registering an MCP server, issuing developer access — is scoped to a JFrog Project.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    JFrog Project: ml-code-review                        │
+│                                                                         │
+│  ┌─────────────────────────┐    ┌────────────────────────────────────┐  │
+│  │   Allowed Models        │    │   Provider Connections             │  │
+│  │                         │    │                                    │  │
+│  │  ✅ facebook/bart-large  │    │  ml-openai-connection              │  │
+│  │  ✅ openai/gpt-4o        │    │  └─ Project: ml-code-review        │  │
+│  │  🚫 ms/codebert-base     │    │  └─ Provider: OpenAI              │  │
+│  │     (blocked — pickle)   │    │  └─ Secret: openai-api-key        │  │
+│  └─────────────────────────┘    │                                    │  │
+│                                 │  ml-huggingface-connection         │  │
+│  ┌─────────────────────────┐    │  └─ Project: ml-code-review        │  │
+│  │   MCP Registry          │    │  └─ Provider: HuggingFace         │  │
+│  │                         │    └────────────────────────────────────┘  │
+│  │  📦 github-mcp           │                                           │
+│  │  └─ Allow: ^get_.*       │    ┌────────────────────────────────────┐  │
+│  │  └─ Allow: ^list_.*      │    │   Developer Access                 │  │
+│  │  └─ Deny:  .*delete.*    │    │                                    │  │
+│  │                         │    │  🎫 Project-scoped JFrog token     │  │
+│  │  📦 jfrog-mcp            │    │  🌐 https://<org>.ml.jfrog.io/v1  │  │
+│  │  └─ Allow: all reads     │    │     (AI Gateway endpoint)         │  │
+│  └─────────────────────────┘    └────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+         │                              │
+         ▼                              ▼
+  Developer calls AI Gateway     Developer runs MCP Gateway
+  with JFrog project token       jf mcp-gateway run
+  → JFrog proxies to provider    PROJECT_KEY=ml-code-review
+  → Usage logged, metered        → Tool policies enforced
+```
+
+---
+
+## System Architecture Diagram
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                         Demo Environment                             │
+│                         Admin Surfaces                               │
 │                                                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │              AI Coding Assistant Layer                          │ │
-│  │                                                                 │ │
-│  │   ┌──────────────────┐       ┌─────────────────────────────┐   │ │
-│  │   │  Claude Desktop  │  or   │  Cursor / VS Code Copilot  │   │ │
-│  │   └────────┬─────────┘       └──────────────┬──────────────┘   │ │
-│  │            │                                │                   │ │
-│  │            └──────────────┬─────────────────┘                   │ │
-│  │                           │ MCP Protocol (stdio / SSE)          │ │
-│  └───────────────────────────┼─────────────────────────────────────┘ │
-│                              │                                       │
-│  ┌───────────────────────────▼─────────────────────────────────────┐ │
-│  │                  JFrog MCP Server                               │ │
-│  │                                                                 │ │
-│  │   22 tools across 5 categories:                                 │ │
-│  │   • Repository Management (create, list, configure)            │ │
-│  │   • Build & Runtime (artifact queries, build info)             │ │
-│  │   • Access Control (users, permissions, tokens)                │ │
-│  │   • Catalog & Curation (AI Catalog, curation status)           │ │
-│  │   • Xray Security (vulnerability, license, policy)             │ │
-│  │                                                                 │ │
-│  │   Hosted at: https://<platform>/mcp  (JFrog SaaS)              │ │
-│  │   Auth: OAuth 2.0 (browser flow)                               │ │
-│  └───────────────────────────┬─────────────────────────────────────┘ │
-│                              │ JFrog REST API                        │
-│  ┌───────────────────────────▼─────────────────────────────────────┐ │
-│  │                  JFrog Platform (SaaS)                          │ │
-│  │                                                                 │ │
-│  │  ┌─────────────────┐  ┌──────────────────┐  ┌───────────────┐  │ │
-│  │  │   AI Catalog    │  │   Artifactory    │  │     Xray      │  │ │
-│  │  │                 │  │                  │  │               │  │ │
-│  │  │ • Model cards   │  │ • HF remote repo │  │ • Pickle scan │  │ │
-│  │  │ • Shadow AI     │  │ • Local model    │  │ • ONNX scan   │  │ │
-│  │  │ • Curation      │  │   store          │  │ • CVE scan    │  │ │
-│  │  │   policies      │  │ • Virtual repo   │  │ • License     │  │ │
-│  │  │ • Evidence      │  │   (unified URL)  │  │   compliance  │  │ │
-│  │  │   trail         │  │                  │  │               │  │ │
-│  │  └─────────────────┘  └──────────────────┘  └───────────────┘  │ │
-│  │                                                                 │ │
-│  │  ┌─────────────────────────────────────────────────────────┐   │ │
-│  │  │                    AI Gateway                           │   │ │
-│  │  │  • Routes external AI API calls (OpenAI, Anthropic)    │   │ │
-│  │  │  • Shadow AI detection                                 │   │ │
-│  │  │  • Usage metering and policy enforcement               │   │ │
-│  │  └─────────────────────────────────────────────────────────┘   │ │
-│  └───────────────────────────┬─────────────────────────────────────┘ │
-│                              │ HTTPS proxy/cache                     │
-│  ┌───────────────────────────▼─────────────────────────────────────┐ │
-│  │                   Hugging Face Hub                              │ │
-│  │              (public AI model registry)                         │ │
-│  │         Models: facebook/bart-large-cnn, etc.                  │ │
-│  └─────────────────────────────────────────────────────────────────┘ │
+│  ┌───────────────────┐  ┌────────────────┐  ┌────────────────────┐  │
+│  │  AI/ML Discovery  │  │  Connections   │  │  MCP Registry      │  │
+│  │  (staging area)   │  │  (per project) │  │  Admin             │  │
+│  │  Browse, evaluate │  │  Provider +    │  │  Add, configure    │  │
+│  │  Allow or block   │  │  Project pair  │  │  tool policies     │  │
+│  └────────┬──────────┘  └───────┬────────┘  └─────────┬──────────┘  │
+│           │                     │                      │             │
+└───────────┼─────────────────────┼──────────────────────┼────────────┘
+            │ Allow to project    │ Bind credential       │ Register in
+            │                     │                       │ project
+            ▼                     ▼                       ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    JFrog Platform (SaaS)                             │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                  JFrog Projects                              │   │
+│  │                                                              │   │
+│  │  Project: ml-code-review          Project: data-science      │   │
+│  │  ├─ Allowed Models: bart, gpt-4o  ├─ Allowed Models: llama   │   │
+│  │  ├─ Connections: OpenAI, HF       ├─ Connections: AWS        │   │
+│  │  └─ MCP Registry: github, jfrog   └─ MCP Registry: s3-mcp    │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌────────────────┐  ┌──────────────────┐  ┌────────────────────┐   │
+│  │   AI Gateway   │  │   Artifactory    │  │      Xray          │   │
+│  │                │  │                  │  │                    │   │
+│  │ ml.jfrog.io/v1 │  │ • HF remote repo │  │ • Model scanning   │   │
+│  │ Proxies all    │  │ • Local store    │  │ • Pickle/ONNX/CVE  │   │
+│  │ LLM API calls  │  │ • Virtual repo   │  │ • License check    │   │
+│  │ Uses stored    │  │   (governed URL) │  │ • Evidence trail   │   │
+│  │ Connection creds│  │                  │  │                    │   │
+│  └────────┬───────┘  └──────────────────┘  └────────────────────┘   │
+│           │                                                          │
+└───────────┼──────────────────────────────────────────────────────────┘
+            │ Proxied API calls
+            ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│               External AI Providers                                  │
+│                                                                      │
+│   OpenAI   Anthropic   AWS Bedrock   NVIDIA NIM   HuggingFace        │
+│                                                                      │
+│   (Credentials stored in JFrog; developers never hold raw keys)      │
 └──────────────────────────────────────────────────────────────────────┘
+
+         ▲                              ▲
+         │                              │
+┌────────┴───────────────────┐  ┌───────┴──────────────────────────────┐
+│    Developer (LLM usage)   │  │    Developer (MCP tools)             │
+│                            │  │                                      │
+│  from openai import OpenAI │  │  export PROJECT_KEY=ml-code-review   │
+│  client = OpenAI(          │  │  jf mcp-gateway run                  │
+│    api_key="<jfrog-token>",│  │                                      │
+│    base_url="ml.jfrog.io/v1│  │  Claude Code calls tools via         │
+│  )                         │  │  MCP Gateway — policies enforced     │
+└────────────────────────────┘  └──────────────────────────────────────┘
 ```
 
 ---
 
-## Model Governance Flow
+## Key Design Decisions
+
+### Why the Provider-Project Pair is the Atomic Unit
+
+From JFrog documentation: *"Each model provider-project pair requires a unique connection."* This is not just organizational labeling — it is the enforcement mechanism. A developer in project A cannot use a connection created for project B. Token generation, usage metering, and policy enforcement all derive from this binding.
+
+### Why Developers Never Hold Raw API Keys
+
+The JFrog AI Gateway acts as a proxy. Developers call `https://<org>.ml.jfrog.io/v1` with a JFrog-issued project-scoped token. JFrog resolves the stored Connection credential and proxies the request to the actual provider. This means:
+- API key rotation happens in one place (the Connection/Secret), not across all developer environments
+- Developer access is revoked by invalidating the JFrog token or removing the project allowance
+- All usage is logged through the gateway, regardless of which provider is called
+
+### Why the MCP Gateway Uses PROJECT_KEY
+
+The JFrog MCP Gateway (`jf mcp-gateway run`) is the equivalent of the AI Gateway for MCP tools. The `PROJECT_KEY` environment variable determines which project's MCP Registry is exposed to the AI coding assistant. Only MCP servers added to that project's Registry are available; only tool calls matching the Allow list (and not the Deny list) are executed. The AI assistant cannot discover or call any MCP tool outside what the project's policy permits.
+
+### The Discovery → Registry Flow
 
 ```
-Developer / AI Agent asks for a model
-         │
-         ▼
-   JFrog MCP Server
-   (jfrog_get_package_info)
-         │
-         ▼
-   Artifactory virtual repo
-   (aggregates local + HF remote)
-         │
-    ┌────┴────┐
-    │         │
-    ▼         ▼
- Model      Model
- cached     not cached
- locally       │
-    │          ▼
-    │    Fetch from Hugging Face Hub
-    │          │
-    │          ▼
-    │    Xray scans automatically
-    │          │
-    │    ┌─────┴──────┐
-    │    │            │
-    │    ▼            ▼
-    │  CLEAN       MALICIOUS
-    │    │            │
-    │    ▼            ▼
-    │  Curation    Curation
-    │  APPROVED    BLOCKED
-    │    │            │
-    │    ▼            ▼
-    │  Served to   Request
-    │  developer   rejected
-    │    │         + alert
-    │    ▼
-  Model card in
-  AI Catalog with
-  full evidence trail
-```
+Discovery (Staging Area)          Registry (Developer View)
+─────────────────────             ─────────────────────────
+All known AI assets     →Allow→   Assets approved for a
+• Unallowed models      (per      specific project
+• Shadow AI             project)
+• MCP servers
+• API providers
 
----
-
-## MCP Interaction Diagram
-
-```
-Presenter prompt (natural language)
-         │
-         ▼
-  Claude / Cursor
-  (LLM reasoning)
-         │
-         │ Selects tools based on intent
-         ▼
-  ┌─────────────────────────────────────┐
-  │         JFrog MCP Server            │
-  │                                     │
-  │  Tool: jfrog_get_package_info       │──► Artifactory Package API
-  │  Tool: jfrog_get_package_           │
-  │         curation_status             │──► Curation Service API
-  │  Tool: jfrog_get_package_version_   │
-  │         vulnerabilities             │──► Xray REST API
-  │  Tool: create_project               │──► Access Control API
-  │  Tool: create_local_repository      │──► Artifactory Admin API
-  │  Tool: create_remote_repository     │──► Artifactory Admin API
-  │  Tool: create_virtual_repository    │──► Artifactory Admin API
-  └─────────────────────────────────────┘
-         │
-         ▼
-  Structured JSON results
-         │
-         ▼
-  Claude synthesizes into
-  natural language response
-  with governance summary
+Admin evaluates here              Developer consumes here
 ```
 
 ---
 
 ## Component Roles
 
-| Component | Role in Demo | How It's Accessed |
-|-----------|-------------|-------------------|
-| Claude Desktop / Cursor | AI assistant; primary demo interface | Direct UI |
-| JFrog MCP Server | Bridge: turns JFrog into AI-native tools | MCP protocol |
-| JFrog AI Catalog | Governance UI; shows evidence and policies | Browser |
-| Artifactory | Model registry; stores and proxies HF models | JFrog CLI + MCP |
-| Xray | Security engine; scans models for threats | Automatic + UI |
-| AI Gateway | Controls external AI API consumption | AI Catalog UI |
-| Hugging Face Hub | Source of ML models | Proxied through Artifactory |
-
----
-
-## Key Design Decisions
-
-### Why a virtual repository?
-Developers always pull from the virtual URL (`jfrog-ai-demo-virtual`). Behind the scenes, Artifactory routes to local (approved models) or fetches from the HuggingFace remote proxy. The developer never needs to know where the model lives — they always get the governed version.
-
-### Why pre-seed the blocked model?
-Live Xray scans can take 30–60 seconds. Pre-seeding ensures the blocked model evidence is available instantly during the demo without waiting for scan completion. The `reset.sh` script restores this state.
-
-### Why use MCP for repo setup (Act 3)?
-It demonstrates that JFrog AI Catalog is itself AI-native — not just managing AI assets but being controlled by AI tooling. The MCP Server is the natural language interface to the entire JFrog platform.
-
-### What's the Shadow AI detection source?
-Shadow AI detection learns from network-level telemetry (when AI Gateway is deployed) or from code scanning. For the demo, entries are manually seeded via `scripts/setup.sh` to ensure they're visible on any tenant configuration.
+| Component | Role | Primary User |
+|-----------|------|-------------|
+| AI/ML Discovery | Browse + evaluate all AI assets before approval | Admin |
+| Connections | Store `(provider, project)` credential bindings | Admin |
+| AI/ML Registry | Approved assets per project — the developer catalog | Developer |
+| AI Gateway | Proxy for all LLM API calls; uses stored Connection creds | Developer (transparent) |
+| MCP Registry | Per-project MCP server catalog with tool policies | Admin + Developer |
+| MCP Gateway (`jf mcp-gateway run`) | Enforces per-project MCP tool policies at runtime | Developer |
+| JFrog Xray | Security scanning engine — scans on ingest | Platform (automatic) |
+| Curation Policies | Pre-ingest blocking rules — block before caching | Admin |
+| Shadow AI Detection | Surfaces unmanaged AI API calls enterprise-wide | Admin visibility |

@@ -2,130 +2,133 @@
 
 ---
 
-## About JFrog AI Catalog
+## About JFrog Projects and Governance
 
-**Q: How is JFrog AI Catalog different from just using Hugging Face directly?**
+**Q: Why does JFrog AI Catalog use Projects as the governance unit?**
 
-A: Hugging Face provides model discovery and basic safety checks, but no enterprise governance. JFrog AI Catalog adds:
-- Organization-wide curation policies (not per-user settings)
-- Xray security scanning with evidence-based results
-- Complete lineage and audit trail for compliance
-- Integration with your existing RBAC and IAM
-- Shadow AI detection for unmanaged AI consumption
-- A single governed URL for all AI assets (Artifactory virtual repository)
+A: Projects allow fine-grained, team-level governance rather than organization-wide allow/block rules. Different teams have different AI needs — the data science team might need access to LLaMA 70B, while the product team only needs GPT-4o. JFrog Projects enforce this separation: each team gets access to exactly the AI assets they're authorized for, with separate credential bindings.
 
-Hugging Face is the source; JFrog is the governance layer.
+From JFrog's documentation: "Each model provider-project pair requires a unique connection." This is the core rule — there's no global connection; every provider relationship is project-scoped.
 
-**Q: Does this only work with Hugging Face models?**
+**Q: What's the difference between Discovery and Registry?**
 
-A: No. JFrog AI Catalog governs:
-- Hugging Face models (via Artifactory HuggingFace package type)
-- Internal/proprietary models (local repositories)
-- External AI API providers: OpenAI, Anthropic, Google Gemini, AWS Bedrock, NVIDIA NIM
-- MCP servers (via the MCP Registry, announced Q1 2026)
+A: 
+- **Discovery** — the staging area for admins. All known AI assets appear here. Admins evaluate, check security scans, and decide what to allow.
+- **Registry** — the developer view. Only assets explicitly allowed for their project. Developers browse and consume from here.
 
-**Q: When was JFrog AI Catalog released?**
+The flow is: Discovery (evaluate) → Allow (to specific project) → Registry (developer access).
 
-A: AI Catalog launched at JFrog swampUP in September 2025. Shadow AI detection was added in November 2025. The MCP Registry was announced at the same time with Q1 2026 availability.
+**Q: Can one model be allowed in multiple projects?**
 
-**Q: What license tier is required?**
+A: Yes. The same model (e.g., `facebook/bart-large-cnn`) can be allowed into multiple projects. Each "Allow" action creates a separate binding for the target project. If the provider connection already exists for that project, JFrog reuses it automatically.
 
-A: AI Catalog requires JFrog Enterprise X tier. Xray is included. Shadow AI detection features may vary by tier — confirm specifics with your JFrog account team for your prospect.
+**Q: Who can allow models and create connections?**
+
+A: Only platform admins can allow models from Discovery and create Provider Connections. Developer self-service is limited to browsing the Registry and generating project-scoped tokens via "Use Model." This separation of duties is intentional — admins control the governance perimeter; developers consume within it.
+
+---
+
+## About Provider Connections and the AI Gateway
+
+**Q: Why don't developers hold the raw API keys?**
+
+A: Provider Connections store credentials as JFrog Secrets. When a developer calls the JFrog AI Gateway (`https://<org>.ml.jfrog.io/v1`) with a project-scoped token, the Gateway resolves the stored Connection credential and proxies the request to the actual provider. This means:
+- Developer machines and CI jobs never hold provider API keys
+- Key rotation is a single-place operation (update the JFrog Secret)
+- Access revocation is a single JFrog token invalidation
+- Usage is metered and logged at the Gateway for every call
+
+**Q: How does the AI Gateway affect my code?**
+
+A: Minimal change — it's OpenAI API-compatible. Replace `base_url` (from `https://api.openai.com/v1` to `https://<org>.ml.jfrog.io/v1`) and replace the API key with a JFrog project-scoped token. Standard OpenAI SDK, LangChain, LlamaIndex, and similar frameworks work unchanged.
+
+**Q: Does the AI Gateway affect latency?**
+
+A: Minimal — typically 10–30ms of proxy overhead. LLM inference takes seconds; the gateway overhead is negligible. The JFrog AI Gateway is hosted on SaaS infrastructure close to major cloud regions.
+
+**Q: What happens if the AI Gateway goes down?**
+
+A: The gateway is a managed JFrog SaaS service with the same SLA as the rest of the JFrog Platform. For offline use cases, JFrog supports local/cached models through Artifactory repositories which don't require the gateway.
+
+---
+
+## About MCP Governance
+
+**Q: What is the JFrog MCP Registry?**
+
+A: The MCP Registry is JFrog AI Catalog's catalog of approved MCP servers, governed per project. Admins add MCP servers to a project's Registry and define tool-level policies (allow/deny rules using regex). Developers access these servers through the JFrog MCP Gateway.
+
+**Q: How does the MCP Gateway work?**
+
+A: Developers install the MCP Gateway using `jf mcp-gateway run` with their `PROJECT_KEY`. The gateway intercepts all MCP tool calls from their AI coding assistant and enforces the project's tool policies — allowing approved tool calls through to the target MCP server, blocking denied calls before they execute.
+
+**Q: What's the difference between the JFrog MCP Gateway and the JFrog MCP Server?**
+
+A: Two distinct things:
+- **JFrog MCP Gateway** (`jf mcp-gateway run`) — developer-facing runtime that enforces per-project MCP tool policies. Governs what MCP servers and tools developers can use.
+- **JFrog MCP Server** (`jfrog-mcp`, available via Smithery) — exposes JFrog platform administration as MCP tools. Lets AI assistants query and manage JFrog itself (create repos, check policies, etc.).
+
+The demo uses both: MCP Gateway for project-governed MCP access, and optionally jfrog-mcp for showing admin operations.
+
+**Q: Can we define our own tool policies per MCP server?**
+
+A: Yes. Tool policies are regex-based, defined per (MCP server, project) pair. Common patterns:
+- `^get_.*` — allow all read/get operations
+- `.*delete.*` — deny all delete operations
+- `^create_issue$` — allow only issue creation, nothing else
+
+The "Recommended" mode requires admins to explicitly define allow lists, preventing accidental tool exposure.
+
+**Q: Is the MCP Registry generally available?**
+
+A: The MCP Registry reached GA in March 2026. Confirm current availability with your JFrog account team for production use cases.
 
 ---
 
 ## About Security
 
-**Q: What exactly can JFrog detect in Hugging Face models?**
+**Q: What does JFrog scan for in AI models?**
 
 A: JFrog Xray scans for:
-- **Pickle exploits** — malicious code in Python serialization files (`.pkl`)
-- **ONNX backdoors** — malicious operations injected into model graphs
+- **Pickle exploits** — malicious code in Python serialization files
+- **ONNX backdoors** — malicious operations in model graph structures
 - **TensorFlow Lambda layers** — arbitrary code execution via TF serialization
-- **GGUF inference-stage exploits** — attacks targeting LLM quantized formats
-- **CVEs** in model dependencies (NumPy, PyTorch, transformers, etc.)
-- **License violations** — AGPL, commercial restrictions, missing licenses
+- **GGUF inference-stage exploits** — attacks targeting quantized LLM formats
+- **CVEs** in model dependencies
+- **License violations** — AGPL, missing licenses, commercial restrictions
 
-**Q: Isn't this just VirusTotal for models?**
+**Q: How does curation differ from Xray scanning?**
 
-A: No — VirusTotal uses signature-based detection optimized for executables. JFrog's model scanning requires deep understanding of ML serialization formats, model graph structures, and inference-time attack vectors. JFrog's security research team discovered the PickleScan zero-days (CVSS 9.3) by analyzing Hugging Face repos at scale — this is original security research, not signature matching.
+A: Xray scans artifacts and produces findings. Curation policies evaluate those findings and take automated action — blocking download before the artifact is served to any developer. Curation happens at ingest time, before models enter the cache. Xray scans produce the evidence; curation policies enforce the response.
 
-**Q: What's a pickle attack and why does it matter?**
+**Q: Can we see audit trails per project?**
 
-A: Python's `pickle` module is used to serialize and deserialize Python objects — including ML models (PyTorch, scikit-learn). It can execute arbitrary code on deserialization. A malicious model file can run any code the attacker wants the moment you load it with `torch.load()`. JFrog scans for embedded pickle payloads before the model is ever loaded.
-
-**Q: How does JFrog handle false positives?**
-
-A: JFrog's evidence engine requires file-level proof of the specific attack vector before flagging a model. The system is designed to eliminate false positives — when it blocks a model, it shows you exactly what file, what payload, and what attack vector triggered the block.
-
-**Q: What's the JFrog + Hugging Face security partnership?**
-
-A: Announced in 2025, JFrog and Hugging Face formally partnered to scan all public Hugging Face repositories automatically when models are pushed. JFrog's security research directly informs Hugging Face's safety indicators.
-
----
-
-## About the MCP Server
-
-**Q: What is the JFrog MCP Server?**
-
-A: The JFrog MCP Server is an official JFrog product that implements the Model Context Protocol (MCP) — an open standard for connecting AI assistants to external tools. It exposes 22 JFrog platform capabilities as MCP tools, making the entire JFrog platform queryable and controllable through natural language from AI coding assistants like Claude or Cursor.
-
-**Q: Does the MCP Server need to be self-hosted?**
-
-A: No. The official remote MCP Server is hosted by JFrog at `https://yourcompany.jfrog.io/mcp` — no installation required. There is an experimental self-hosted option (`mcp-jfrog` GitHub repo) but the official remote server is the recommended path for JFrog SaaS customers.
-
-**Q: Is the MCP Server production-ready?**
-
-A: The official remote MCP Server is in open beta for JFrog SaaS (as of early 2026). It's stable enough for demos and internal use. The underlying JFrog platform APIs are production-grade. GA is targeted for H1 2026.
-
-**Q: Which AI coding assistants support it?**
-
-A: Any MCP-compatible assistant: Claude Desktop, Cursor, VS Code with GitHub Copilot, Replit, Sourcegraph Cody. MCP is an open standard (donated to the Linux Foundation in December 2025) with broad adoption.
-
-**Q: Does using the MCP Server mean my prompts are sent to JFrog?**
-
-A: No. The MCP Server only receives the structured tool call parameters (e.g., "list repositories of type huggingface"). The natural language conversation stays in your AI assistant. JFrog never sees your prompts.
+A: Yes. The Registry maintains a governance trail per model per project: when it was allowed, who approved it, what security scan was evaluated, what policy applied. AI Gateway logs show per-project, per-model call metering. MCP Gateway logs show per-project tool call execution.
 
 ---
 
 ## About Shadow AI
 
-**Q: How does Shadow AI detection work technically?**
+**Q: How does Shadow AI detection work?**
 
-A: Shadow AI detection uses two mechanisms:
-1. **Network telemetry** (when AI Gateway is deployed): monitors outbound connections to known AI API endpoints
-2. **Code scanning**: identifies hardcoded API keys and direct API call patterns in CI/CD artifacts
+A: Shadow AI detection monitors outbound calls to known AI API provider endpoints through the AI Gateway (when deployed) or network telemetry. It identifies calls to providers not routed through the JFrog governance layer and surfaces them in the AI Catalog dashboard.
 
-Detection is automatic once the AI Gateway is deployed — no application code changes required.
+**Q: What happens after we "Allow to Project"?**
 
-**Q: What can we do once Shadow AI is detected?**
-
-A: AI Catalog surfaces the findings and offers a "Route through AI Gateway" action. Once routed:
-- All calls go through the AI Gateway
-- Usage is metered and attributed to teams/services
-- Policies can be applied (allowed models, rate limits, cost caps)
-- Full audit trail is maintained
-
-**Q: Does Shadow AI detection cover all AI providers?**
-
-A: JFrog tracks a curated list of known AI API providers including OpenAI, Anthropic, Google (Gemini, Vertex), AWS Bedrock, Cohere, Mistral, and NVIDIA NIM. The list is updated as new providers gain adoption.
+A: The Allow action creates a Provider Connection for the detected provider in the specified project. The next step is updating the caller (CI job, developer code) to use a JFrog project token and the AI Gateway endpoint instead of the provider's direct API. JFrog provides migration guides and code snippets for this transition. The goal is to bring the call under the same governance model as everything else — without breaking workflows.
 
 ---
 
-## About the Demo
+## About Setup and Compatibility
 
-**Q: Is this demo against live infrastructure or simulated?**
+**Q: Does this work with self-hosted Artifactory?**
 
-A: The demo runs against a real JFrog SaaS instance. MCP tool calls are live API requests — no mocking. The blocked model's scan evidence is pre-seeded (to avoid waiting for live scan) but represents real scan data.
+A: The official JFrog AI Catalog features (Discovery, Connections, Registry, AI Gateway, MCP Registry) currently require JFrog SaaS. Self-hosted Artifactory supports HuggingFace repository proxying and Xray scanning for model artifacts, but the AI Catalog layer is SaaS-only for now.
 
-**Q: Can we try this ourselves?**
+**Q: What AI providers are supported?**
 
-A: Yes — this repository includes everything needed:
-1. Set up a JFrog SaaS trial (free 14-day) at https://jfrog.com/start-free/
-2. Clone this repo and run `./scripts/setup.sh`
-3. Configure MCP in Claude Desktop using `config/mcp/claude-desktop-config.json`
-4. Run `./scripts/validate.sh` and you're ready
+A: Supported providers for Provider Connections: OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, NVIDIA NIM, HuggingFace, Cohere, Mistral, Azure OpenAI. The list grows as JFrog adds integrations.
 
-**Q: How long does setup take?**
+**Q: Can we use this in CI/CD pipelines?**
 
-A: About 15 minutes from zero to demo-ready. See `QUICKSTART.md`.
+A: Yes. The JFrog CLI supports the AI Catalog workflow in GitHub Actions, GitLab CI, and Jenkins. The recommended pattern is: jobs use JFrog project-scoped tokens (from a CI service account with project membership) to call the AI Gateway, instead of hardcoded provider API keys. GitHub Actions + OIDC integration is supported for keyless authentication.

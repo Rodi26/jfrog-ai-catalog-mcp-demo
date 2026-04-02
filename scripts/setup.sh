@@ -3,10 +3,21 @@
 #
 # Usage: ./scripts/setup.sh
 #
+# What this creates:
+#   1. Artifactory repositories (HuggingFace remote + local + virtual)
+#   2. JFrog Project: ml-code-review
+#   3. Curation policy (blocks malicious models on ingest)
+#   4. Xray security policy
+#
+# Note on Connections and Model Allowances:
+#   Provider Connections and model allowances must be configured via the
+#   JFrog AI Catalog UI (AI/ML Settings > Connections) — they are not
+#   accessible via the JFrog CLI or standard REST API.
+#   See docs/setup-guide.md for the manual steps.
+#
 # Required environment variables:
 #   JFROG_URL           — Your JFrog SaaS URL (e.g. https://yourcompany.jfrog.io)
 #   JFROG_ACCESS_TOKEN  — Admin-scoped access token
-#   JFROG_USER          — Your JFrog username (optional if using token)
 #
 # Optional:
 #   JFROG_SERVER_ID     — JFrog CLI server ID (default: jfrog-demo)
@@ -19,12 +30,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
 ok()   { echo -e "${GREEN}[✓]${NC} $1"; }
 fail() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
-info() { echo -e "    $1"; }
+info() { echo -e "${BLUE}[i]${NC} $1"; }
 
 JFROG_SERVER_ID="${JFROG_SERVER_ID:-jfrog-demo}"
 
@@ -41,14 +53,13 @@ if ! command -v jf &>/dev/null; then
 fi
 
 if [[ -z "${JFROG_URL:-}" ]]; then
-  fail "JFROG_URL is not set. Export it before running: export JFROG_URL=https://yourcompany.jfrog.io"
+  fail "JFROG_URL is not set. Run: export JFROG_URL=https://yourcompany.jfrog.io"
 fi
 
 if [[ -z "${JFROG_ACCESS_TOKEN:-}" ]]; then
-  fail "JFROG_ACCESS_TOKEN is not set. Export it before running: export JFROG_ACCESS_TOKEN=your-token"
+  fail "JFROG_ACCESS_TOKEN is not set. Run: export JFROG_ACCESS_TOKEN=your-token"
 fi
 
-# Normalize URL (remove trailing slash)
 JFROG_URL="${JFROG_URL%/}"
 
 # --- Configure JFrog CLI ---
@@ -60,105 +71,96 @@ jf config add "$JFROG_SERVER_ID" \
   --interactive=false \
   --overwrite=true 2>/dev/null || true
 
-# Test authentication
 if ! jf rt ping --server-id="$JFROG_SERVER_ID" &>/dev/null; then
   fail "JFrog CLI authentication failed. Check your JFROG_URL and JFROG_ACCESS_TOKEN."
 fi
 ok "JFrog CLI authenticated ($JFROG_SERVER_ID)"
 
-# --- Create repositories ---
+# --- Create JFrog Project ---
+
+echo ""
+echo "Creating demo project..."
+
+PROJECT_KEY="ml-code-review"
+project_exists=$(curl -sf -o /dev/null -w "%{http_code}" \
+  -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
+  "$JFROG_URL/access/api/v1/projects/$PROJECT_KEY" 2>/dev/null || echo "000")
+
+if [[ "$project_exists" == "200" ]]; then
+  warn "Project '$PROJECT_KEY' already exists — skipping"
+else
+  curl -sf -X POST \
+    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    "$JFROG_URL/access/api/v1/projects" \
+    -d "{
+      \"project_key\": \"$PROJECT_KEY\",
+      \"display_name\": \"ML Code Review\",
+      \"description\": \"Demo project for the AI Catalog governance walkthrough\",
+      \"storage_quota_bytes\": -1,
+      \"admin_privileges\": {
+        \"manage_members\": true,
+        \"manage_resources\": true,
+        \"index_resources\": true
+      }
+    }" >/dev/null && ok "Created project: $PROJECT_KEY" || \
+    warn "Project creation returned an error — may already exist or require manual creation"
+fi
+
+# --- Create Artifactory Repositories ---
 
 echo ""
 echo "Creating demo repositories..."
 
-create_repo() {
+create_repo_if_missing() {
   local key="$1"
-  local type="$2"
-  local pkg_type="$3"
-  local description="$4"
-  local extra="${5:-}"
+  local payload="$2"
+  local label="$3"
 
-  # Check if repo already exists
-  if jf rt repo-info "$key" --server-id="$JFROG_SERVER_ID" &>/dev/null; then
+  status=$(curl -sf -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
+    "$JFROG_URL/artifactory/api/repositories/$key" 2>/dev/null || echo "000")
+
+  if [[ "$status" == "200" ]]; then
     warn "Repository '$key' already exists — skipping"
     return
   fi
 
-  local payload
-  payload=$(cat <<EOF
-{
-  "key": "$key",
-  "rclass": "$type",
-  "packageType": "$pkg_type",
-  "description": "$description",
-  "xrayIndex": true
-  $extra
-}
-EOF
-)
-
-  echo "$payload" | jf rt repo-create --server-id="$JFROG_SERVER_ID" - || \
+  curl -sf -X PUT \
+    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    "$JFROG_URL/artifactory/api/repositories/$key" \
+    -d "$payload" >/dev/null && ok "Created $label: $key" || \
     fail "Failed to create repository: $key"
-  ok "Created $type repository: $key"
 }
 
-# HuggingFace remote repository
-if jf rt repo-info jfrog-ai-demo-huggingface-remote --server-id="$JFROG_SERVER_ID" &>/dev/null; then
-  warn "Remote repository 'jfrog-ai-demo-huggingface-remote' already exists — skipping"
-else
-  curl -sf -X PUT \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-    -H "Content-Type: application/json" \
-    "$JFROG_URL/artifactory/api/repositories/jfrog-ai-demo-huggingface-remote" \
-    -d '{
-      "key": "jfrog-ai-demo-huggingface-remote",
-      "rclass": "remote",
-      "packageType": "machinelearning",
-      "url": "https://huggingface.co",
-      "description": "Proxy and cache for Hugging Face Hub models",
-      "xrayIndex": true,
-      "storeArtifactsLocally": true,
-      "assumedOfflinePeriodSecs": 300
-    }' >/dev/null && ok "Created remote repository: jfrog-ai-demo-huggingface-remote" || \
-    fail "Failed to create remote repository"
-fi
+create_repo_if_missing "jfrog-ai-demo-huggingface-remote" '{
+  "key": "jfrog-ai-demo-huggingface-remote",
+  "rclass": "remote",
+  "packageType": "machinelearning",
+  "url": "https://huggingface.co",
+  "description": "Proxy and cache for Hugging Face Hub models",
+  "xrayIndex": true,
+  "storeArtifactsLocally": true,
+  "assumedOfflinePeriodSecs": 300
+}' "remote repository"
 
-# Local model repository
-if jf rt repo-info jfrog-ai-demo-models-local --server-id="$JFROG_SERVER_ID" &>/dev/null; then
-  warn "Local repository 'jfrog-ai-demo-models-local' already exists — skipping"
-else
-  curl -sf -X PUT \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-    -H "Content-Type: application/json" \
-    "$JFROG_URL/artifactory/api/repositories/jfrog-ai-demo-models-local" \
-    -d '{
-      "key": "jfrog-ai-demo-models-local",
-      "rclass": "local",
-      "packageType": "machinelearning",
-      "description": "Local store for approved and internally promoted AI models",
-      "xrayIndex": true
-    }' >/dev/null && ok "Created local repository: jfrog-ai-demo-models-local" || \
-    fail "Failed to create local repository"
-fi
+create_repo_if_missing "jfrog-ai-demo-models-local" '{
+  "key": "jfrog-ai-demo-models-local",
+  "rclass": "local",
+  "packageType": "machinelearning",
+  "description": "Local store for approved AI models in the ml-code-review project",
+  "xrayIndex": true
+}' "local repository"
 
-# Virtual repository
-if jf rt repo-info jfrog-ai-demo-virtual --server-id="$JFROG_SERVER_ID" &>/dev/null; then
-  warn "Virtual repository 'jfrog-ai-demo-virtual' already exists — skipping"
-else
-  curl -sf -X PUT \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-    -H "Content-Type: application/json" \
-    "$JFROG_URL/artifactory/api/repositories/jfrog-ai-demo-virtual" \
-    -d '{
-      "key": "jfrog-ai-demo-virtual",
-      "rclass": "virtual",
-      "packageType": "machinelearning",
-      "description": "Unified governed access point for all AI models. Developers should pull from here.",
-      "repositories": ["jfrog-ai-demo-models-local", "jfrog-ai-demo-huggingface-remote"],
-      "defaultDeploymentRepo": "jfrog-ai-demo-models-local"
-    }' >/dev/null && ok "Created virtual repository: jfrog-ai-demo-virtual" || \
-    fail "Failed to create virtual repository"
-fi
+create_repo_if_missing "jfrog-ai-demo-virtual" '{
+  "key": "jfrog-ai-demo-virtual",
+  "rclass": "virtual",
+  "packageType": "machinelearning",
+  "description": "Unified governed access point. Developers pull from here.",
+  "repositories": ["jfrog-ai-demo-models-local", "jfrog-ai-demo-huggingface-remote"],
+  "defaultDeploymentRepo": "jfrog-ai-demo-models-local"
+}' "virtual repository"
 
 # --- Apply curation policy ---
 
@@ -166,21 +168,19 @@ echo ""
 echo "Applying curation policy..."
 
 CURATION_POLICY_FILE="$REPO_ROOT/config/artifactory/curation-policy.json"
-
 if [[ -f "$CURATION_POLICY_FILE" ]]; then
   response=$(curl -sf -X POST \
     -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
     "$JFROG_URL/xray/api/v1/policies" \
     -d @"$CURATION_POLICY_FILE" 2>&1) || true
-
   if echo "$response" | grep -q "already exists" 2>/dev/null; then
     warn "Curation policy already exists — skipping"
   else
     ok "Curation policy applied: block-malicious-ai-models"
   fi
 else
-  warn "Curation policy file not found: $CURATION_POLICY_FILE"
+  warn "Curation policy file not found — skipping"
 fi
 
 # --- Apply Xray security policy ---
@@ -189,52 +189,62 @@ echo ""
 echo "Applying Xray security policy..."
 
 XRAY_POLICY_FILE="$REPO_ROOT/config/xray/security-policy.json"
-
 if [[ -f "$XRAY_POLICY_FILE" ]]; then
   response=$(curl -sf -X POST \
     -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
     "$JFROG_URL/xray/api/v1/policies" \
     -d @"$XRAY_POLICY_FILE" 2>&1) || true
-
   if echo "$response" | grep -q "already exists" 2>/dev/null; then
     warn "Xray policy already exists — skipping"
   else
     ok "Xray security policy applied: ai-catalog-security-policy"
   fi
 else
-  warn "Xray policy file not found: $XRAY_POLICY_FILE"
+  warn "Xray policy file not found — skipping"
 fi
 
-# --- Seed demo model references ---
+# --- Manual steps reminder ---
 
 echo ""
-echo "Seeding demo model references..."
-info "Note: Live model seeding requires Artifactory to proxy HuggingFace."
-info "If models are not immediately visible, they will be fetched on first access."
-info "The blocked model scenario (microsoft/codebert-base) requires pre-configuration"
-info "in the AI Catalog UI with a seeded scan result. See docs/setup-guide.md."
-
-ok "Demo seed notes logged"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+info "MANUAL STEPS REQUIRED (AI Catalog UI)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "  The following must be done via the JFrog AI Catalog UI:"
+echo "  (API access for these is not available in the current beta)"
+echo ""
+echo "  1. Create Provider Connections (AI/ML Settings > Connections):"
+echo "     • ml-openai-connection      → Project: ml-code-review, Provider: OpenAI"
+echo "     • ml-huggingface-connection → Project: ml-code-review, Provider: HuggingFace"
+echo ""
+echo "  2. Allow models to the project (AI/ML > Discovery):"
+echo "     • Allow: facebook/bart-large-cnn → Project: ml-code-review"
+echo "     • Allow: salesforce/codet5-base  → Project: ml-code-review"
+echo "     • (microsoft/codebert-base should remain blocked)"
+echo ""
+echo "  3. Register MCP servers (AI/ML > Registry > MCP Servers):"
+echo "     • Add github-mcp with tool policy: allow ^get_.*, ^list_.*"
+echo "     •                                  deny  .*delete.*"
+echo ""
+echo "  See docs/setup-guide.md for step-by-step screenshots."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # --- Summary ---
 
 echo ""
 echo "============================================"
-echo -e "${GREEN}  Setup complete!${NC}"
+echo -e "${GREEN}  Automated setup complete!${NC}"
 echo "============================================"
 echo ""
-echo "  Repositories created:"
-echo "  • jfrog-ai-demo-huggingface-remote (HuggingFace proxy)"
-echo "  • jfrog-ai-demo-models-local (approved models)"
-echo "  • jfrog-ai-demo-virtual (unified access)"
+echo "  Created:"
+echo "  • Project: ml-code-review"
+echo "  • Repository: jfrog-ai-demo-huggingface-remote"
+echo "  • Repository: jfrog-ai-demo-models-local"
+echo "  • Repository: jfrog-ai-demo-virtual"
+echo "  • Policy: block-malicious-ai-models"
+echo "  • Policy: ai-catalog-security-policy"
 echo ""
-echo "  Policies applied:"
-echo "  • block-malicious-ai-models (curation)"
-echo "  • ai-catalog-security-policy (Xray)"
-echo ""
-echo "  Next steps:"
-echo "  1. Configure MCP client (see docs/setup-guide.md)"
-echo "  2. Run ./scripts/validate.sh"
-echo "  3. Open DEMO.md for the presenter guide"
+echo "  Next: Complete the manual steps above, then run:"
+echo "  ./scripts/validate.sh"
 echo ""

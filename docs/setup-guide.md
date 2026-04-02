@@ -6,249 +6,186 @@ Complete environment setup for the JFrog AI Catalog MCP Demo.
 
 ## Overview
 
-The setup process creates:
-1. A HuggingFace remote repository in Artifactory (proxies Hugging Face Hub)
-2. A local model repository (stores approved models)
-3. A virtual repository (unified, governed access URL)
-4. A curation policy (blocks malicious models automatically)
-5. An Xray security policy (scans all AI assets)
-6. Demo model references (pre-seeded for the blocked model scenario)
-7. MCP client configuration (Claude Desktop / Cursor / VS Code)
+Setup has two phases:
+1. **Automated** — `./scripts/setup.sh` creates the JFrog Project, Artifactory repositories, and security policies
+2. **Manual** — AI Catalog UI steps for Provider Connections, Model Allowances, and MCP Registry (these are not yet accessible via API in the current beta)
 
 ---
 
-## Step 1 — JFrog SaaS Setup
+## Phase 1: JFrog SaaS Prerequisites
 
-### 1.1 Provision a JFrog SaaS Instance
+### Provision a JFrog SaaS Instance
 
-If you don't have one:
-1. Go to https://jfrog.com/start-free/
-2. Select "JFrog Cloud" (SaaS, not self-hosted)
-3. Choose a region close to your demo location
-4. Select Enterprise X trial (required for AI Catalog + Xray)
-5. Complete registration — your URL will be `https://yourname.jfrog.io`
+1. Go to https://jfrog.com/start-free/ → select "JFrog Cloud" (SaaS)
+2. Select **Enterprise X** trial (required for AI Catalog + Xray)
+3. Your URL will be `https://yourname.jfrog.io`
 
-### 1.2 Enable AI Catalog and Xray
+### Enable AI Catalog and Xray
 
-If AI Catalog is not already enabled on your instance:
-1. Log into the JFrog Platform UI as admin
-2. Navigate to Platform → Administration → AI Catalog
-3. Enable AI Catalog
-4. Navigate to Administration → Xray → Indexing
-5. Ensure Xray indexing is enabled for the `Machine Learning` package type
+1. Log in as admin → Administration → AI Catalog → enable
+2. Administration → Xray → Indexing → enable Machine Learning package type
 
-### 1.3 Generate an Admin Access Token
+### Generate an Admin Access Token
 
-1. Navigate to Administration → User Management → Access Tokens
-2. Click "Generate Token"
-3. Scope: Admin
-4. Expiry: Set to longer than your demo period (or no expiry for a dedicated demo tenant)
-5. Copy the token — you won't see it again
+1. Administration → User Management → Access Tokens
+2. Create token with Admin scope
+3. Copy the token value (shown once)
 
 ---
 
-## Step 2 — Local Environment Setup
-
-### 2.1 Clone the Repository
+## Phase 2: Automated Setup
 
 ```bash
-git clone https://github.com/your-org/jfrog-ai-catalog-mcp-demo.git
+git clone https://github.com/Rodi26/jfrog-ai-catalog-mcp-demo.git
 cd jfrog-ai-catalog-mcp-demo
-```
 
-### 2.2 Set Environment Variables
+export JFROG_URL=https://yourcompany.jfrog.io
+export JFROG_ACCESS_TOKEN=your-admin-token
 
-```bash
-export JFROG_URL="https://yourcompany.jfrog.io"
-export JFROG_ACCESS_TOKEN="your-admin-access-token"
-export JFROG_USER="your-username"
-```
-
-Add these to your shell profile (`~/.zshrc` or `~/.bashrc`) for persistence.
-
-### 2.3 Install JFrog CLI
-
-```bash
-# macOS
-brew install jfrog-cli
-
-# Linux / macOS (direct download)
-curl -fL https://install-cli.jfrog.io | sh
-
-# Verify
-jf --version
-```
-
-### 2.4 Authenticate JFrog CLI
-
-```bash
-jf config add jfrog-demo \
-  --url "$JFROG_URL" \
-  --access-token "$JFROG_ACCESS_TOKEN" \
-  --interactive=false
-
-# Verify
-jf config show
-```
-
----
-
-## Step 3 — Run Setup Script
-
-```bash
 ./scripts/setup.sh
 ```
 
-This is the one-command setup. It creates all repositories, applies policies, and seeds demo data.
+This creates:
+- **JFrog Project** `ml-code-review` — the demo governance boundary
+- **Artifactory repositories**: `jfrog-ai-demo-huggingface-remote`, `jfrog-ai-demo-models-local`, `jfrog-ai-demo-virtual`
+- **Curation policy**: `block-malicious-ai-models`
+- **Xray security policy**: `ai-catalog-security-policy`
 
-**What it does (step by step):**
+---
+
+## Phase 3: Manual UI Steps (AI Catalog)
+
+### 3.1 — Create Provider Connections
+
+Provider Connections bind a `(provider, project)` pair to stored credentials. Each connection is unique per pair.
+
+**Navigate to:** AI/ML Settings → Connections → Create new connection
+
+**Connection 1 — OpenAI for ml-code-review:**
+- Name: `ml-openai-connection`
+- Project: `ml-code-review`
+- Provider: OpenAI
+- API Key Secret: create new secret named `openai-api-key`, paste your OpenAI API key
+- Save
+
+**Connection 2 — HuggingFace for ml-code-review:**
+- Name: `ml-huggingface-connection`
+- Project: `ml-code-review`
+- Provider: HuggingFace
+- API Key Secret: create new secret named `huggingface-api-key`, paste your HuggingFace token
+- Save
+
+You should see both connections listed, both bound to `ml-code-review`.
+
+---
+
+### 3.2 — Discover and Allow Models
+
+**Navigate to:** AI/ML → Discovery
+
+#### Seed the blocked model (Act 2 security scenario)
+
+The demo requires `microsoft/codebert-base` to show as blocked with scan evidence:
+1. Search for `microsoft/codebert-base`
+2. If not visible, it may not yet be indexed — proceed to allowing the clean models
+3. If visible: do NOT allow it — it should remain blocked in Discovery with security findings
+
+> **Note:** If your demo tenant doesn't show this model with a scan result, use screenshots from `demo-assets/screenshots/act2-blocked-model.png` as fallback for Act 2.
+
+#### Allow the clean models
+
+**Model 1 — facebook/bart-large-cnn:**
+1. Search for `facebook/bart-large-cnn`
+2. Click on it → review security scan (should be clean), license (MIT)
+3. Click **"Allow"**
+4. Select project: `ml-code-review`
+5. System detects `ml-huggingface-connection` → click Confirm
+
+**Model 2 — salesforce/codet5-base:**
+1. Search for `salesforce/codet5-base`
+2. Click → verify clean scan
+3. Click **"Allow"** → project: `ml-code-review` → Confirm
+
+**Verify:** Navigate to AI/ML → Registry → filter by `ml-code-review` → confirm both models appear.
+
+---
+
+### 3.3 — Register MCP Servers
+
+**Navigate to:** AI/ML → Discovery → MCP Servers tab
+
+#### Add github-mcp to the project
+
+1. Search for `github-mcp` (or browse the MCP server catalog)
+2. Click → review MCP Server Info + Identified Tools
+3. Click **"Add to Registry"**
+4. Select project: `ml-code-review`
+5. Configure **Tool Policy** (select "Manual — Recommended"):
+   - Allow list: `^get_.*`, `^list_.*`, `^search_.*`
+   - Deny list: `.*delete.*`, `.*push.*`, `.*merge.*`
+6. Configure required environment variables (e.g., `GITHUB_TOKEN`)
+7. Click **"Save Configuration"**
+
+#### Add jfrog-mcp (optional, for admin tools demo)
+
+1. Search for `jfrog-mcp`
+2. Add to Registry → project: `ml-code-review`
+3. Tool policy: Allow: `jfrog_get_.*`, `jfrog_list_.*` | Deny: `.*delete.*`, `.*create.*`
+4. Configure `JFROG_ACCESS_TOKEN` environment variable
+5. Save
+
+---
+
+### 3.4 — Seed Shadow AI Entries (Act 5)
+
+For the Shadow AI demo to work, your tenant needs detected external API calls.
+
+**Option A (preferred):** If your JFrog instance has AI Gateway deployed, actual external calls will be detected automatically. Run some direct API calls from a test machine:
 
 ```bash
-# Creates the HuggingFace remote repository
-# Proxies public Hugging Face Hub, caches models locally in JFrog
-jf rt repo-create RT --serverId=jfrog-demo \
-  config/artifactory/create-repos.sh
+# Simulate shadow AI — run from a machine outside your AI Gateway
+curl https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "claude-3-haiku-20240307", "max_tokens": 10, "messages": [{"role": "user", "content": "ping"}]}'
+```
 
-# Applies the curation policy from config/artifactory/curation-policy.json
-# Blocks models with critical severity or known malicious payloads
+**Option B (fallback):** Shadow AI detection may not be visible on all tenant configurations. Use screenshots from `demo-assets/screenshots/act4-shadow-ai.png` and narrate the scenario.
 
-# Applies the Xray security policy from config/xray/security-policy.json
-# Scans all Machine Learning package type artifacts
+---
 
-# Seeds the demo model references
-# Pre-populates the blocked model scenario for Act 2
+## Phase 4: MCP Gateway Setup (Developer Machine)
+
+For Act 4, you need the JFrog MCP Gateway installed on the presenter's machine:
+
+```bash
+export HOST_DOMAIN=yourcompany.jfrog.io
+export PROJECT_KEY=ml-code-review
+export CLIENT_ID=claude
+
+bash <(curl -fL https://releases.jfrog.io/artifactory/jfrog-cli-plugins/mcp-gateway/latest/scripts/mcp-gateway.sh)
+```
+
+The installer will:
+1. Install JFrog CLI (if not present)
+2. Install the `mcp-gateway` plugin
+3. Authenticate your machine with the JFrog instance
+4. Set `PROJECT_KEY=ml-code-review` as the active project
+5. Configure Claude Code's `.mcp.json` to use the gateway
+6. Print a magic link — click it to complete authorization
+
+Verify:
+```bash
+jf mcp-gateway status
+# Expected: connected, project: ml-code-review
 ```
 
 ---
 
-## Step 4 — Configure MCP Client
-
-### Claude Desktop
-
-#### macOS
-
-```bash
-# Back up existing config (if any)
-cp ~/Library/Application\ Support/Claude/claude_desktop_config.json \
-   ~/Library/Application\ Support/Claude/claude_desktop_config.json.bak 2>/dev/null
-
-# Copy demo config
-cp config/mcp/claude-desktop-config.json \
-   ~/Library/Application\ Support/Claude/claude_desktop_config.json
-```
-
-Edit the config to replace `YOUR_JFROG_URL`:
-```bash
-# Replace with your actual URL
-sed -i '' "s|YOUR_JFROG_URL|$JFROG_URL|g" \
-  ~/Library/Application\ Support/Claude/claude_desktop_config.json
-```
-
-#### Windows
-
-```powershell
-$configPath = "$env:APPDATA\Claude\claude_desktop_config.json"
-Copy-Item "config\mcp\claude-desktop-config.json" $configPath
-(Get-Content $configPath) -replace 'YOUR_JFROG_URL', $env:JFROG_URL | Set-Content $configPath
-```
-
-**Restart Claude Desktop** after updating the config.
-
----
-
-### Cursor
-
-```bash
-# Copy to workspace MCP config
-mkdir -p .cursor
-cp config/mcp/cursor-config.json .cursor/mcp.json
-
-# Replace URL
-sed -i '' "s|YOUR_JFROG_URL|$JFROG_URL|g" .cursor/mcp.json
-```
-
-Open Cursor → Settings → MCP → verify the JFrog server appears.
-
----
-
-### VS Code with GitHub Copilot
-
-```bash
-# Copy to workspace
-mkdir -p .vscode
-cp config/mcp/vscode-config.json .vscode/mcp.json
-
-# Replace URL
-sed -i '' "s|YOUR_JFROG_URL|$JFROG_URL|g" .vscode/mcp.json
-```
-
-Reload VS Code. The JFrog MCP tools should appear in Copilot.
-
----
-
-## Step 5 — Authorize MCP Connection
-
-The JFrog MCP Server uses OAuth 2.0. On first use:
-
-1. Open Claude Desktop (or Cursor)
-2. Send any prompt that calls a JFrog tool, e.g.: `List my Artifactory repositories`
-3. A browser window will open asking you to authorize the JFrog MCP Server
-4. Log in with your JFrog credentials and approve
-5. Return to your AI assistant — the tool call will complete
-
-The OAuth token is cached for subsequent uses.
-
----
-
-## Step 6 — Validate
+## Phase 5: Validate Everything
 
 ```bash
 ./scripts/validate.sh
 ```
 
-Expected output:
-```
-============================================
-  JFrog AI Catalog MCP Demo - Pre-flight Validation
-============================================
-
-[✓] JFrog CLI authenticated (jfrog-demo)
-[✓] Remote repository exists: jfrog-ai-demo-huggingface-remote
-[✓] Local repository exists: jfrog-ai-demo-models-local
-[✓] Virtual repository exists: jfrog-ai-demo-virtual
-[✓] Curation policy active: block-malicious-ai-models
-[✓] Xray security policy active: ai-catalog-security-policy
-[✓] MCP config found: ~/Library/Application Support/Claude/claude_desktop_config.json
-[✓] Demo model seeds present
-
-============================================
-  All checks passed. Demo environment ready!
-============================================
-```
-
----
-
-## Step 7 — Test MCP Connection
-
-Open Claude Desktop and send:
-```
-List the repositories in my JFrog instance that have the Machine Learning package type.
-```
-
-You should see the JFrog MCP tools called and a list including `jfrog-ai-demo-huggingface-remote`, `jfrog-ai-demo-models-local`, and `jfrog-ai-demo-virtual`.
-
----
-
-## Resetting Between Demo Runs
-
-```bash
-./scripts/reset.sh
-```
-
-This deletes and recreates the demo repositories and policies, restoring state to pre-demo clean condition. Use between demo runs to ensure the blocked model and shadow AI scenarios are correctly seeded.
-
----
-
-## Troubleshooting Setup
-
-See [`docs/troubleshooting.md`](troubleshooting.md) for detailed troubleshooting steps.
+All checks should pass before presenting. See [`docs/troubleshooting.md`](troubleshooting.md) if any check fails.

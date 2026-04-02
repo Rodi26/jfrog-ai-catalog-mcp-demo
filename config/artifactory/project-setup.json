@@ -1,4 +1,92 @@
 {
+  "_comment": "JFrog AI Catalog Demo — Project and Connection Definitions",
+  "_docs": "https://docs.jfrog.com/ai-ml/docs/connect-ai-providers",
+
+  "demo_project": {
+    "project_key": "ml-code-review",
+    "display_name": "ML Code Review",
+    "description": "Demo project for the AI Catalog governance walkthrough. Scopes AI model access and MCP server usage to the ML Code Review team.",
+    "storage_quota_bytes": -1,
+    "admin_privileges": {
+      "manage_members": true,
+      "manage_resources": true,
+      "index_resources": true
+    }
+  },
+
+  "demo_connections": [
+    {
+      "name": "ml-openai-connection",
+      "project_key": "ml-code-review",
+      "provider": "OpenAI",
+      "description": "OpenAI API connection for the ml-code-review project",
+      "secret_name": "openai-api-key",
+      "_note": "Each provider-project pair requires a unique connection. This connection allows models from OpenAI to be allowed into the ml-code-review project and enables developers to call the AI Gateway with a JFrog project token."
+    },
+    {
+      "name": "ml-huggingface-connection",
+      "project_key": "ml-code-review",
+      "provider": "HuggingFace",
+      "description": "HuggingFace API connection for the ml-code-review project",
+      "secret_name": "huggingface-api-key",
+      "_note": "Required to allow HuggingFace models (e.g., facebook/bart-large-cnn) into the project Registry."
+    },
+    {
+      "name": "ml-anthropic-connection",
+      "project_key": "ml-code-review",
+      "provider": "Anthropic",
+      "description": "Anthropic API connection — added during Shadow AI governance demo (Act 5)",
+      "secret_name": "anthropic-api-key",
+      "_note": "This connection is created during the demo when Shadow AI detects unmanaged Anthropic calls and the admin allows them into the project."
+    }
+  ],
+
+  "demo_allowed_models": [
+    {
+      "model": "HuggingFace/facebook/bart-large-cnn",
+      "project_key": "ml-code-review",
+      "status": "allowed",
+      "description": "Primary code summarization model — approved and allowed to ml-code-review",
+      "_note": "This model is allowed during Act 2. Connection ml-huggingface-connection provides the credential binding."
+    },
+    {
+      "model": "HuggingFace/salesforce/codet5-base",
+      "project_key": "ml-code-review",
+      "status": "allowed",
+      "description": "Alternative code model — second approved option shown in Act 2"
+    },
+    {
+      "model": "HuggingFace/microsoft/codebert-base",
+      "project_key": null,
+      "status": "blocked",
+      "description": "Blocked in Discovery — malicious pickle payload. Never allowed to any project.",
+      "_note": "This model is shown in the blocked state in Act 2. Pre-seeded scan result."
+    }
+  ],
+
+  "demo_mcp_registry": [
+    {
+      "server_name": "github-mcp",
+      "project_key": "ml-code-review",
+      "type": "remote",
+      "tool_policy": {
+        "allow_list": ["^get_.*", "^list_.*", "^search_.*"],
+        "deny_list": [".*delete.*", ".*push.*", ".*merge.*"],
+        "_note": "Read-only GitHub tools allowed. All write/delete operations blocked."
+      }
+    },
+    {
+      "server_name": "jfrog-mcp",
+      "project_key": "ml-code-review",
+      "type": "remote",
+      "tool_policy": {
+        "allow_list": ["jfrog_get_.*", "jfrog_list_.*", "jfrog_search_.*"],
+        "deny_list": [".*delete.*", ".*create.*"],
+        "_note": "JFrog platform read tools only. No creation or deletion via MCP in this project."
+      }
+    }
+  ],
+
   "demo_repositories": [
     {
       "key": "jfrog-ai-demo-huggingface-remote",
@@ -6,12 +94,7 @@
       "packageType": "machinelearning",
       "description": "Proxy and cache for Hugging Face Hub models — governed access point",
       "url": "https://huggingface.co",
-      "repoLayoutRef": "simple-default",
       "xrayIndex": true,
-      "assumedOfflinePeriodSecs": 300,
-      "retrievalCachePeriodSecs": 43200,
-      "failedRetrievalCachePeriodSecs": 30,
-      "unusedArtifactsCleanupEnabled": false,
       "storeArtifactsLocally": true
     },
     {
@@ -19,41 +102,18 @@
       "type": "local",
       "packageType": "machinelearning",
       "description": "Local store for approved and internally promoted AI models",
-      "repoLayoutRef": "simple-default",
-      "xrayIndex": true,
-      "blackedOut": false
+      "xrayIndex": true
     },
     {
       "key": "jfrog-ai-demo-virtual",
       "type": "virtual",
       "packageType": "machinelearning",
-      "description": "Unified governed access point for all AI models. Developers should always pull from here.",
+      "description": "Unified governed access point for all AI models. Developers pull from here.",
       "repositories": [
         "jfrog-ai-demo-models-local",
         "jfrog-ai-demo-huggingface-remote"
       ],
-      "defaultDeploymentRepo": "jfrog-ai-demo-models-local",
-      "repoLayoutRef": "simple-default"
-    }
-  ],
-  "demo_seed_models": [
-    {
-      "name": "facebook/bart-large-cnn",
-      "status": "approved",
-      "description": "Clean code summarization model — demo approved asset",
-      "note": "This model is pre-seeded as the 'safe' model in Act 2"
-    },
-    {
-      "name": "microsoft/codebert-base",
-      "status": "blocked",
-      "description": "Model with simulated pickle payload — demo security threat",
-      "note": "This model is pre-seeded as the 'blocked' model in Act 2. Requires a pre-seeded scan result."
-    },
-    {
-      "name": "salesforce/codet5-base",
-      "status": "approved",
-      "description": "Alternative clean model — shows multiple approved options",
-      "note": "Used in Act 1 as a second approved candidate"
+      "defaultDeploymentRepo": "jfrog-ai-demo-models-local"
     }
   ]
 }

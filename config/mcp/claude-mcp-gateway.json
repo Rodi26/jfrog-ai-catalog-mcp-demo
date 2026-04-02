@@ -1,0 +1,13 @@
+{
+  "_comment": "JFrog MCP Gateway configuration for Claude Code / Claude Desktop",
+  "_docs": "https://docs.jfrog.com/ai-ml/docs/configure-claude-code",
+  "_setup": "Run the MCP Gateway installer first: see QUICKSTART.md#mcp-gateway-setup",
+
+  "mcpServers": {
+    "JFrogMCPGateway": {
+      "command": "jf",
+      "args": ["mcp-gateway", "run"],
+      "_note": "The gateway enforces the tool policies for your PROJECT_KEY. Set PROJECT_KEY before running."
+    }
+  }
+}

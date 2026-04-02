@@ -1,140 +1,128 @@
-JFrog AI Catalog MCP Demo — Copy-Paste Prompts
-================================================
+JFrog AI Catalog MCP Demo — Copy-Paste Prompts & Commands
+===========================================================
 
-Use these exact prompts during the demo. Each prompt is designed to trigger
-the right JFrog MCP tool calls for each act.
-
-Copy entire blocks (including the --- markers are just for navigation,
-don't copy those).
-
-=== ACT 1 — Model Discovery via MCP ===
-
-Paste this into Claude Desktop or Cursor:
-
----BEGIN PROMPT---
-I need to find Hugging Face models suitable for code summarization.
-Show me what's available in JFrog, check their curation status,
-and flag any known vulnerabilities.
----END PROMPT---
-
-EXPECTED TOOL CALLS:
-1. jfrog_get_package_info (packageType: huggingface)
-2. jfrog_get_package_curation_status (for each model)
-3. jfrog_get_package_version_vulnerabilities (for flagged models)
-
-EXPECTED OUTCOME:
-- List of 3 models: facebook/bart-large-cnn, microsoft/codebert-base, salesforce/codet5-base
-- microsoft/codebert-base flagged as BLOCKED (pickle payload, Critical severity)
-- Two models showing APPROVED status
+Primary demo surface is the JFrog AI Catalog UI.
+These prompts are for the MCP Gateway portions (Act 4) and optional
+MCP-admin-tools demo using the jfrog-mcp server.
 
 
+=== ACT 4 — MCP GATEWAY SETUP (Terminal) ===
 
-=== ACT 2 — Follow-up Security Query (Optional Extension) ===
+Step 1: Install the MCP Gateway (one-time, developer machine)
 
-Use if audience wants to dig deeper into the blocked model:
+---BEGIN COMMAND---
+export HOST_DOMAIN=yourcompany.jfrog.io
+export PROJECT_KEY=ml-code-review
+export CLIENT_ID=claude
 
----BEGIN PROMPT---
-Tell me more about the security issues with microsoft/codebert-base.
-What exactly was found, what's the attack vector, and why was it blocked?
----END PROMPT---
+bash <(curl -fL https://releases.jfrog.io/artifactory/jfrog-cli-plugins/mcp-gateway/latest/scripts/mcp-gateway.sh)
+---END COMMAND---
 
-EXPECTED TOOL CALLS:
-1. jfrog_get_package_version_vulnerabilities (microsoft/codebert-base)
-2. jfrog_get_package_curation_status (microsoft/codebert-base)
+Replace yourcompany.jfrog.io with your actual JFrog SaaS URL.
+The script installs jf CLI + mcp-gateway plugin, authenticates the machine,
+sets the active project context to ml-code-review, and configures Claude Code.
 
-EXPECTED OUTCOME:
-- Pickle payload details (file name, CVE ID if available, CVSS score)
-- Curation policy that triggered the block
-- Clear articulation that it was automatically blocked, not manually reviewed
+---
 
+Step 2: Run the gateway (after Claude Code is configured)
 
+---BEGIN COMMAND---
+export PROJECT_KEY=ml-code-review
+jf mcp-gateway run
+---END COMMAND---
 
-=== ACT 3 — MCP Project Setup ===
-
-Paste this into Claude Desktop or Cursor:
-
----BEGIN PROMPT---
-Create a new JFrog project called "ml-code-review" and set up
-repositories for a Python ML pipeline:
-- a local repository for storing approved models
-- a remote HuggingFace proxy repository
-- a virtual repository that aggregates both with "ml-" prefix
-
-Use appropriate settings for a machine learning project.
----END PROMPT---
-
-EXPECTED TOOL CALLS:
-1. create_project (key: ml-code-review)
-2. create_local_repository (key: ml-models-local, packageType: machinelearning)
-3. create_remote_repository (key: ml-huggingface-remote, url: https://huggingface.co)
-4. create_virtual_repository (key: ml-models-virtual, includes both repos above)
-
-EXPECTED OUTCOME:
-- Project created: ml-code-review
-- 3 repositories created with correct settings
-- Developer pull URL shown: https://yourcompany.jfrog.io/ml-models-virtual
+This starts the MCP Gateway. Claude Code connects to it and gets access
+to the MCP servers approved for ml-code-review (with tool policies enforced).
 
 
+=== ACT 4 — SHOW TOOL POLICY (optional CLI check) ===
 
-=== ACT 3 — Follow-up (Optional) ===
+Show which tools are accessible for the project (after gateway setup):
 
-Shows governance awareness after setup:
+---BEGIN COMMAND---
+jf mcp-gateway list-tools --project ml-code-review
+---END COMMAND---
+
+Expected output: filtered list showing only ^get_.* and ^list_.* tools,
+with delete/* tools absent.
+
+
+=== OPTIONAL — MCP Admin Tools Demo (using jfrog-mcp server) ===
+
+If demoing the JFrog platform management via MCP (separate from the Gateway),
+use the jfrog-mcp server (npx @smithery/cli install @jfrog/mcp-jfrog --client claude).
+
+Paste into Claude Desktop or Claude Code (with jfrog-mcp configured):
 
 ---BEGIN PROMPT---
-Show me the curation status and security policies that apply to
-the ml-code-review project we just created.
+List all JFrog projects in my organization and show their AI Catalog status.
 ---END PROMPT---
-
-EXPECTED TOOL CALLS:
-1. jfrog_get_package_curation_status (for ml-models-virtual)
-2. Possibly: list policies or watches
-
-EXPECTED OUTCOME:
-- Inherited policies from the organization default
-- Shows security policies are automatically applied to new repos
-
-
-
-=== ACT 1 — Alternative Discovery (Simpler) ===
-
-Use this if the audience prefers a less technical framing:
 
 ---BEGIN PROMPT---
-Search JFrog for any available Hugging Face models related to
-code or text summarization. For each one, tell me if it's safe
-to use and whether JFrog has approved it for our organization.
+Show me the details of the ml-code-review project including its allowed models
+and active provider connections.
 ---END PROMPT---
 
-EXPECTED TOOL CALLS:
-Same as Act 1 main prompt.
 
+=== ACT 3 — DEVELOPER INTEGRATION (Code Snippet Reference) ===
+
+Show this code snippet in Act 3 when demonstrating AI Gateway integration.
+This is what JFrog generates in the "Use Model" pane.
+
+---BEGIN CODE (Python)---
+from openai import OpenAI
+
+# JFrog AI Gateway — project-scoped token, not the provider's API key
+client = OpenAI(
+    api_key="<jfrog-project-scoped-token>",          # From: AI/ML > Registry > Use Model
+    base_url="https://yourcompany.ml.jfrog.io/v1"   # JFrog AI Gateway endpoint
+)
+
+response = client.chat.completions.create(
+    model="HuggingFace/facebook/bart-large-cnn",
+    messages=[
+        {"role": "user", "content": "Summarize this code function: def calculate_total(items): ..."}
+    ]
+)
+
+print(response.choices[0].message.content)
+---END CODE---
+
+Key talking points for this code:
+- api_key is a JFrog project-scoped token, not the provider's key
+- base_url points to JFrog AI Gateway (ml.jfrog.io), not the provider
+- model name format: "Provider/model-name"
+- Standard OpenAI SDK — zero friction for developers switching providers
 
 
 === TROUBLESHOOTING PROMPTS ===
 
-If MCP tools are not triggering, use this diagnostic prompt:
+If MCP Gateway is not connecting, verify setup:
 
----BEGIN PROMPT---
-List all the JFrog tools and capabilities you have available
-through your MCP connection.
----END PROMPT---
+---BEGIN COMMAND---
+jf mcp-gateway status
+---END COMMAND---
 
-This confirms the MCP server is connected and lists available tools.
+If Claude Code doesn't see MCP tools, check config:
 
-If repositories are not visible:
+---BEGIN COMMAND---
+cat ~/.claude.json | python3 -m json.tool | grep -A5 JFrogMCPGateway
+---END COMMAND---
 
----BEGIN PROMPT---
-List all repositories in my JFrog Artifactory instance.
----END PROMPT---
+Verify project key is set:
 
-This confirms basic connectivity and shows all repos, including demo ones.
+---BEGIN COMMAND---
+echo $PROJECT_KEY
+---END COMMAND---
 
+Should output: ml-code-review
 
 
 === NOTES FOR PRESENTER ===
 
-- Always copy the full prompt between ---BEGIN PROMPT--- and ---END PROMPT---
-- Paste into the AI assistant message input, then hit Enter
-- Wait for ALL tool calls to complete before speaking — usually 3-8 seconds per call
-- If a tool call shows an error, fall back to the offline transcript
-- See demo-assets/expected-outputs/mcp-session-transcript.md for the offline fallback
+- Acts 1, 2, 5: Primary surface is JFrog AI Catalog UI in browser
+- Act 3: Show the "Use Model" pane in the browser, then show code snippet
+- Act 4: Switch to terminal for MCP Gateway install + Claude Code demo
+- Always copy commands between ---BEGIN COMMAND--- and ---END COMMAND---
+- Have the offline transcript in demo-assets/expected-outputs/ as fallback
+- For UI portions without a live tenant, use screenshots from demo-assets/screenshots/

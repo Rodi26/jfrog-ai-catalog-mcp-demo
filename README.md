@@ -1,32 +1,62 @@
 # JFrog AI Catalog MCP Demo
 
-> **From Pull to Production — Governing AI with JFrog**
+> **From Discovery to Governance — AI Catalog with JFrog Projects**
 
-A full end-to-end demo repository showing how to go from **building** to **governing** to **executing** AI workflows using JFrog AI Catalog, Hugging Face models, and the JFrog MCP Server.
+A full end-to-end demo repository showing how JFrog Projects are the central governance unit for AI assets: models, LLM API providers, and MCP servers.
 
 ---
 
 ## What This Demo Proves
 
-AI models are the new open-source packages. They carry the same supply chain risks — malicious payloads, license violations, vulnerable dependencies — and most organizations have zero governance over them. **JFrog AI Catalog changes that.**
+In JFrog AI Catalog, **a Project is the governance boundary** for all AI consumption. You don't just block or allow AI assets globally — you authorize them per Project, bind credentials per Project, and issue project-scoped tokens that route through the JFrog AI Gateway. Developers never hold raw provider API keys; they hold JFrog tokens.
 
 This demo shows:
-- How AI assets are discovered and governed through JFrog AI Catalog
-- How Hugging Face models are scanned, approved, or blocked by Xray policy
-- How the JFrog MCP Server turns JFrog into a conversational AI-native platform
-- How Shadow AI (unmanaged external AI API calls) is detected and governed
-- How a complete ML pipeline can be set up via natural language in one conversation
+- How admins **discover and allow** Hugging Face models into a Project
+- How admins **connect AI providers** (OpenAI, Anthropic) with project-scoped credentials
+- How developers get a **project-scoped JFrog token** and call the AI Gateway
+- How **MCP servers are governed** through the Project's MCP Registry with tool-level policies
+- How **Shadow AI** (unmanaged API calls) surfaces and is brought under Project governance
 
 ---
 
-## Demo Acts (12 minutes)
+## Demo Acts (~14 minutes)
 
 | Act | Title | Duration | What's Shown |
 |-----|-------|----------|--------------|
-| 1 | Model Discovery via MCP | 3–4 min | Claude queries JFrog for HuggingFace models, checks curation + vulnerabilities live |
-| 2 | Security Deep-Dive | 2–3 min | Blocked model with pickle payload; clean model approved with evidence trail |
-| 3 | MCP Project Setup | 2–3 min | Natural language creates JFrog project + 3 repositories in one conversation |
-| 4 | Shadow AI Detection | 2 min | Unmanaged OpenAI/Anthropic/Gemini calls surfaced for governance |
+| 1 | Project Setup + Provider Connection | 2–3 min | Admin creates `ml-code-review` project, connects OpenAI + HuggingFace |
+| 2 | Model Discovery & Allowance | 3–4 min | Admin discovers models, blocks malicious, allows approved to the project |
+| 3 | Developer Integration via AI Gateway | 3 min | Dev gets project token, calls JFrog AI Gateway — not OpenAI directly |
+| 4 | MCP Registry + Tool Policies | 3 min | Admin adds MCP servers to project, defines allow/deny tool policies |
+| 5 | Shadow AI → Project Allowance | 2 min | Unmanaged calls detected, admin allows them into the governed project |
+
+---
+
+## The Core Governance Model
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  JFrog Project: ml-code-review               │
+│                                                              │
+│  Allowed Models:                 Connected Providers:        │
+│  ✅ facebook/bart-large-cnn       🔗 OpenAI (connection-1)   │
+│  ✅ openai/gpt-4o                 🔗 HuggingFace             │
+│  🚫 microsoft/codebert-base      🔗 Anthropic (connection-2) │
+│     (blocked — pickle payload)                               │
+│                                                              │
+│  MCP Registry:                   Tool Policies:              │
+│  📦 github-mcp                    Allow: ^get_.*, ^list_.*   │
+│  📦 jfrog-mcp                     Deny:  .*delete.*          │
+│                                                              │
+│  Developer Access:                                           │
+│  🎫 Project-scoped token (never the raw provider key)        │
+│  🌐 https://<org>.ml.jfrog.io/v1 (AI Gateway endpoint)      │
+└─────────────────────────────────────────────────────────────┘
+         │                              │
+         ▼                              ▼
+  Developer calls AI Gateway    Developer runs MCP Gateway
+  with JFrog token              jf mcp-gateway run
+  (proxied to provider)         (PROJECT_KEY=ml-code-review)
+```
 
 ---
 
@@ -35,47 +65,46 @@ This demo shows:
 ```
 jfrog-ai-catalog-mcp-demo/
 ├── README.md                          # This file
-├── DEMO.md                            # Presenter demo guide (start here before presenting)
+├── DEMO.md                            # Presenter demo guide (start here)
 ├── QUICKSTART.md                      # 15-minute setup guide
 │
 ├── docs/
-│   ├── architecture.md                # System diagram and component relationships
-│   ├── prerequisites.md               # JFrog license, SaaS access, tool versions
+│   ├── architecture.md                # System diagram and governance model
+│   ├── prerequisites.md               # Requirements checklist
 │   ├── setup-guide.md                 # Full environment setup
-│   ├── demo-script.md                 # Detailed script with prompts and expected outputs
-│   ├── talking-points.md              # Key messages, competitive angles, Q&A prep
-│   ├── troubleshooting.md             # Common failures, fallback steps, offline mode
-│   ├── faq.md                         # Anticipated audience questions with answers
-│   └── diagrams/                      # Architecture and flow diagrams
+│   ├── demo-script.md                 # Detailed script (per step)
+│   ├── talking-points.md              # Key messages, Q&A prep
+│   ├── troubleshooting.md             # Common failures and fallbacks
+│   ├── faq.md                         # Anticipated audience questions
+│   └── diagrams/
 │
 ├── config/
 │   ├── mcp/
-│   │   ├── claude-desktop-config.json # Claude Desktop MCP configuration
-│   │   ├── cursor-config.json         # Cursor MCP configuration
-│   │   └── vscode-config.json         # VS Code Copilot MCP configuration
+│   │   ├── claude-mcp-gateway.json    # Claude Code MCP Gateway config
+│   │   ├── claude-desktop-config.json # Claude Desktop (jfrog-mcp admin tools)
+│   │   └── vscode-config.json
 │   ├── artifactory/
-│   │   ├── create-repos.sh            # JFrog CLI repo creation script
-│   │   ├── curation-policy.json       # Curation policy blocking malicious models
-│   │   └── project-setup.json         # Project and repo layout definition
+│   │   ├── create-repos.sh            # HuggingFace remote repo setup
+│   │   ├── curation-policy.json       # Block malicious models on ingest
+│   │   └── project-setup.json         # Project + Connection definitions
 │   └── xray/
-│       └── security-policy.json       # Xray security policy for AI assets
+│       └── security-policy.json
 │
 ├── scripts/
-│   ├── setup.sh                       # One-command environment setup
-│   ├── reset.sh                       # Reset demo state between runs
-│   ├── validate.sh                    # Pre-demo validation checklist
-│   └── demo-prompts.txt               # Copy-paste MCP prompts for each act
+│   ├── setup.sh                       # One-command setup (repos + project)
+│   ├── reset.sh                       # Reset between demo runs
+│   ├── validate.sh                    # Pre-demo checklist
+│   └── demo-prompts.txt               # Copy-paste prompts per act
 │
 ├── demo-assets/
-│   ├── screenshots/                   # Expected UI state per demo step
-│   ├── sample-models/
-│   │   └── README.md                  # Notes on demo model assets
+│   ├── screenshots/
+│   ├── sample-models/README.md
 │   └── expected-outputs/
-│       └── mcp-session-transcript.md  # Offline fallback MCP session transcript
+│       └── mcp-session-transcript.md  # Offline fallback
 │
 └── .github/
     └── workflows/
-        └── validate-config.yml        # CI: validates JSON configs on PR
+        └── validate-config.yml
 ```
 
 ---
@@ -84,92 +113,65 @@ jfrog-ai-catalog-mcp-demo/
 
 | Resource | Path |
 |----------|------|
-| Demo guide (presenter) | [`DEMO.md`](DEMO.md) |
+| Presenter guide | [`DEMO.md`](DEMO.md) |
 | 15-minute setup | [`QUICKSTART.md`](QUICKSTART.md) |
-| Full environment setup | [`docs/setup-guide.md`](docs/setup-guide.md) |
 | Detailed demo script | [`docs/demo-script.md`](docs/demo-script.md) |
-| MCP copy-paste prompts | [`scripts/demo-prompts.txt`](scripts/demo-prompts.txt) |
+| Copy-paste prompts | [`scripts/demo-prompts.txt`](scripts/demo-prompts.txt) |
+| Governance architecture | [`docs/architecture.md`](docs/architecture.md) |
 | Troubleshooting | [`docs/troubleshooting.md`](docs/troubleshooting.md) |
-| Architecture overview | [`docs/architecture.md`](docs/architecture.md) |
 
 ---
 
-## Use Cases
+## Key JFrog AI Catalog Concepts
 
-This repository is designed for:
-- **Internal demos** — SA and pre-sales walkthroughs
-- **Customer demos** — Technical audience and executive presentations
-- **Technical walkthroughs** — Deep-dive sessions with engineering teams
-- **Workshops** — Hands-on enablement events
-- **Enablement** — Onboarding new SAs and field engineers
+| Concept | Definition |
+|---------|-----------|
+| **Project** | The governance boundary. All AI assets are authorized per project. |
+| **Connection** | A `(provider, project)` credential binding. Each pair is unique. |
+| **Discovery** | Where admins browse and evaluate AI assets before allowing them |
+| **Registry** | Where project-approved assets live — what developers see |
+| **Allow** | Admin action that moves an asset from Discovery → Registry for a project |
+| **AI Gateway** | JFrog proxy at `https://<org>.ml.jfrog.io/v1` — all LLM calls go here |
+| **MCP Gateway** | `jf mcp-gateway run` — routes MCP tool calls through project policies |
+| **Tool Policy** | Per-MCP-server regex rules: which tools are allowed/denied in a project |
+| **Shadow AI** | Unmanaged external AI calls detected by AI Catalog |
 
 ---
 
 ## Prerequisites (Summary)
 
-- JFrog SaaS instance with AI Catalog + Xray enabled (free trial available)
-- Claude Desktop or Cursor with MCP support
-- JFrog CLI (`jf`) installed
-- Git, Node.js, Python 3.10+
+- JFrog SaaS with AI Catalog + Xray enabled (Enterprise X tier)
+- Admin access token (Admin scope)
+- JFrog CLI (`jf`) + `mcp-gateway` plugin installed
+- Claude Desktop or VS Code Copilot
 
-See [`docs/prerequisites.md`](docs/prerequisites.md) for the full list.
+See [`docs/prerequisites.md`](docs/prerequisites.md) for details.
 
 ---
 
 ## Getting Started
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/your-org/jfrog-ai-catalog-mcp-demo.git
+git clone https://github.com/Rodi26/jfrog-ai-catalog-mcp-demo.git
 cd jfrog-ai-catalog-mcp-demo
-
-# 2. Run setup
+export JFROG_URL=https://yourcompany.jfrog.io
+export JFROG_ACCESS_TOKEN=your-admin-token
 ./scripts/setup.sh
-
-# 3. Validate the environment
 ./scripts/validate.sh
-
-# 4. Open the demo guide
 open DEMO.md
 ```
 
 ---
 
-## Architecture
+## References
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Claude Desktop / Cursor                   │
-│                     (AI Coding Assistant)                    │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ MCP Protocol
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   JFrog MCP Server                          │
-│              (22 tools across 5 categories)                  │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ JFrog Platform API
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  JFrog Platform (SaaS)                       │
-│  ┌────────────────┐  ┌──────────────┐  ┌──────────────────┐ │
-│  │  AI Catalog    │  │  Artifactory │  │      Xray        │ │
-│  │  (governance)  │  │  (registry)  │  │  (security scan) │ │
-│  └────────────────┘  └──────────────┘  └──────────────────┘ │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ Proxy / Cache
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Hugging Face Hub                           │
-│              (source of ML models)                           │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Contributing
-
-This is a demo repository. For improvements, open a PR or raise an issue.
+- [JFrog AI Catalog overview](https://docs.jfrog.com/ai-ml/docs/jfrog-ai-catalog-overview)
+- [Discover and allow models](https://docs.jfrog.com/ai-ml/docs/discover-and-allow-models)
+- [Connect AI providers](https://docs.jfrog.com/ai-ml/docs/connect-ai-providers)
+- [Integrate models in your code](https://docs.jfrog.com/ai-ml/docs/integrate-models-in-your-code)
+- [MCP Registry overview](https://docs.jfrog.com/ai-ml/docs/mcp-registry-overview)
+- [Configure tool policies](https://docs.jfrog.com/ai-ml/docs/configure-tool-policies)
+- [Introducing JFrog AI Catalog (blog)](https://jfrog.com/blog/introducing-jfrog-ai-catalog/)
 
 ## License
 

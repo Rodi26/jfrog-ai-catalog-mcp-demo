@@ -1,16 +1,21 @@
 # Detailed Demo Script
 
-Presenter reference with exact prompts, expected outputs, and talking points for each step.
+Presenter reference with exact steps, expected UI states, and talking points for each act.
+
+**Core governance model to keep in mind throughout:**
+> Project = governance boundary. Every allow, every credential, every MCP server is scoped to a Project. Developers call the AI Gateway with JFrog project-scoped tokens — never raw provider keys.
 
 ---
 
 ## Setup (Before Audience Arrives)
 
 1. Run `./scripts/validate.sh` — confirm all green
-2. Open Claude Desktop — confirm JFrog tools visible
-3. Open JFrog AI Catalog in browser — log in, navigate to Packages
-4. Open `scripts/demo-prompts.txt` in a side window for copy-paste
-5. Run `./scripts/reset.sh` if this is not the first run of the day
+2. Log into JFrog SaaS as admin — navigate to **Administration → Projects**
+3. Confirm `ml-code-review` project exists
+4. Navigate to **AI/ML Settings → Connections** — confirm two connections exist
+5. Navigate to **AI/ML → Discovery** — confirm models are visible
+6. Have `scripts/demo-prompts.txt` open for Act 4 MCP Gateway commands
+7. Run `./scripts/reset.sh` if this is not the first demo run of the day
 
 ---
 
@@ -18,245 +23,274 @@ Presenter reference with exact prompts, expected outputs, and talking points for
 
 **Spoken:**
 
-> "AI models are the new open-source packages. They carry the same supply chain risks — malicious payloads, license violations, vulnerable dependencies — and most organizations have zero governance over them. A data scientist pulls a model directly from Hugging Face. A developer hardcodes an OpenAI API key. An agent downloads an MCP server from a random GitHub repo. JFrog AI Catalog changes that."
+> *"AI models and MCP servers are the new open-source packages. They carry the same supply chain risks — malicious payloads, license violations, vulnerable dependencies — and most organizations have zero governance over them."*
 
-> "Today I'm going to show you a 12-minute demo of how JFrog governs the AI supply chain — from the model you pull from Hugging Face, to the MCP server your agent calls, to the shadow AI your infrastructure is already consuming. We'll do it using the JFrog MCP Server, which lets an AI assistant like Claude query and control JFrog entirely through natural language."
+> *"JFrog AI Catalog solves this the same way Artifactory solved open-source sprawl: with a single, governed platform. The governance model is project-based — a team gets access to the AI assets they're authorized for, through credentials they never hold directly, enforced by the JFrog AI Gateway."*
 
-**Transition:** *"Let's start with discovery."*
+> *"I'm going to show you a 14-minute walkthrough of the full governance loop: project setup, model allowance, developer integration, MCP server governance, and shadow AI. Let's start with the Project."*
 
 ---
 
-## Act 1 — Model Discovery via MCP
+## Act 1 — Project Setup + Provider Connections (2–3 min)
 
-### Step 1.1 — Send discovery prompt
+### Step 1.1 — Show the Project
 
-**Switch to:** Claude Desktop
+**Navigate to:** Administration → Projects → `ml-code-review`
 
-**Paste** (from `demo-prompts.txt`, Act 1 — Discovery):
-```
-I need to find Hugging Face models suitable for code summarization.
-Show me what's available in JFrog, check their curation status, 
-and flag any known vulnerabilities.
-```
-
-**While Claude is running:**
-
-> *"Claude is now making real API calls to JFrog through the MCP Server. You'll see the tool calls appear in real-time."*
-
-### Expected Claude output (summary):
-
-```
-I'll check what Hugging Face models are available in your JFrog 
-instance and evaluate their security status.
-
-[Tool: jfrog_get_package_info]
-Found 3 HuggingFace models available:
-- facebook/bart-large-cnn (2.3 GB)  
-- microsoft/codebert-base (499 MB)
-- salesforce/codet5-base (892 MB)
-
-[Tool: jfrog_get_package_curation_status]
-Curation status:
-- facebook/bart-large-cnn: ✅ APPROVED
-- microsoft/codebert-base: 🚫 BLOCKED (security violation)  
-- salesforce/codet5-base: ✅ APPROVED
-
-[Tool: jfrog_get_package_version_vulnerabilities]
-microsoft/codebert-base: 1 critical vulnerability
-- CVE details: Malicious pickle payload detected
-- CVSS: 9.3 (Critical)
-- Vector: Deserialization → Remote Code Execution
-```
+**UI elements to show:**
+- Project key: `ml-code-review` (this is the `PROJECT_KEY` developers use)
+- Display name: ML Code Review
+- Admin privileges enabled
 
 **Spoken:**
-
-> *"Three models found. Two approved, one blocked. Notice: the AI didn't just list available models — it automatically checked their governance status and surfaced the security issue. That's the power of having JFrog as a tool in your AI assistant."*
-
-> *"Let's look at that blocked model in more detail."*
+> *"A JFrog Project is the governance boundary. When we allow a model, we allow it for a specific project. When a developer gets access, it's scoped to this project. One team can use DeepSeek; another is restricted to OpenAI. Enforced through the Project."*
 
 ---
 
-## Act 2 — Security Deep-Dive
+### Step 1.2 — Show Provider Connections
 
-### Step 2.1 — Navigate to AI Catalog
+**Navigate to:** AI/ML Settings → Connections
 
-**Switch to:** Browser (JFrog AI Catalog tab)
+**UI elements to show:**
+- `ml-openai-connection` — project: `ml-code-review`, provider: OpenAI
+- `ml-huggingface-connection` — project: `ml-code-review`, provider: HuggingFace
 
-**Navigate to:** AI Catalog → Packages → filter: HuggingFace
+Click `ml-openai-connection` to show detail:
+- Project binding: `ml-code-review`
+- Provider: OpenAI
+- API key secret: `openai-api-key` (stored as JFrog secret — key value is never visible)
+
+**Spoken:**
+> *"A Connection is the `(provider, project)` credential binding. The OpenAI API key is stored as a JFrog secret. The Connection links that secret to this specific project. Developers in `ml-code-review` can use OpenAI through the AI Gateway. Developers in other projects cannot — unless they have their own connection."*
+
+> *"From the JFrog documentation: 'Each model provider-project pair requires a unique connection.' This is the rule. It's not optional; it's the enforcement mechanism."*
+
+---
+
+## Act 2 — Model Discovery & Allowance (3–4 min)
+
+### Step 2.1 — Discovery Overview
+
+**Navigate to:** AI/ML → Discovery
 
 **Point out:**
-- The model list showing microsoft/codebert-base with a red security indicator
-- The BLOCKED status badge
+- Filter bar at top: status (Unallowed / Allowed / Both), type (All / Custom / External / Package)
+- Search for `bart` or `code summarization`
+- All models shown here are candidates — none are in any project's Registry yet (unless previously allowed)
 
 **Spoken:**
-
-> *"This is the AI Catalog — JFrog's system of record for all AI assets. You can see the blocked model right here."*
-
-### Step 2.2 — Open the blocked model
-
-**Click:** `microsoft/codebert-base` (blocked model)
-
-**Navigate to:** Security tab / Scan Evidence
-
-**Point out:**
-- File scan result: `.pkl` file detected
-- Payload: Code execution via pickle deserialization
-- Severity: Critical
-- Discovered: [date]
-
-**Spoken:**
-
-> *"JFrog's security engine found a pickle payload inside this model. Pickle is Python's serialization format — and it can execute arbitrary code when loaded. This is exactly the attack vector JFrog's researchers discovered in real Hugging Face models in 2025, with a CVSS of 9.3."*
-
-### Step 2.3 — Show the curation policy
-
-**Navigate to:** Curation Policy (link from the model evidence, or navigate to AI Catalog → Policies)
-
-**Point out:**
-- Policy name: `block-malicious-ai-models`
-- Condition: Critical security severity OR known malicious payload
-- Action: Block
-
-**Spoken:**
-
-> *"This curation policy is what prevented this model from ever reaching a developer's machine. The policy evaluated it automatically when it was first fetched — and blocked it before it could be cached or used."*
-
-### Step 2.4 — Switch to the approved model
-
-**Navigate back to:** AI Catalog → Packages → `facebook/bart-large-cnn`
-
-**Point out:**
-- Clean scan evidence: no vulnerabilities
-- License: Apache 2.0 (approved)
-- Governance trail: when pulled, scanned, approved
-- Curation status: Approved
-
-**Spoken:**
-
-> *"The clean model has a complete evidence trail. When it was pulled, what was scanned, what policy applied, who approved it. This is auditable lineage for every AI asset — exactly what security and compliance teams need."*
+> *"Discovery is the staging area. Think of it as the 'evaluate before you authorize' zone. Models appear here from Hugging Face, from your own repos, and from connected API providers. Admins evaluate them here before allowing them into a project."*
 
 ---
 
-## Act 3 — MCP Project Setup
+### Step 2.2 — Show the Blocked Model
 
-### Step 3.1 — Send project creation prompt
-
-**Switch to:** Claude Desktop
-
-**Paste** (from `demo-prompts.txt`, Act 3 — Project Setup):
-```
-Create a new JFrog project called "ml-code-review" and set up 
-repositories for a Python ML pipeline:
-- a local repository for storing approved models
-- a remote HuggingFace proxy repository 
-- a virtual repository that aggregates both with "ml-" prefix
-
-Use appropriate settings for a machine learning project.
-```
-
-**While Claude is running:**
-
-> *"Claude is now calling JFrog's admin APIs through MCP. Watch the tool calls — you'll see it creating real infrastructure."*
-
-### Expected Claude output:
-
-```
-I'll create the ml-code-review project and set up the ML pipeline 
-repositories.
-
-[Tool: create_project]
-✅ Project "ml-code-review" created
-   - Key: ml-code-review
-   - Admin privileges: enabled
-
-[Tool: create_local_repository]  
-✅ Local repository "ml-models-local" created
-   - Package type: Machine Learning
-   - Project: ml-code-review
-   - Description: Approved ML models for code review pipeline
-
-[Tool: create_remote_repository]
-✅ Remote repository "ml-huggingface-remote" created  
-   - URL: https://huggingface.co
-   - Package type: Machine Learning
-   - Caching: enabled
-   - Project: ml-code-review
-
-[Tool: create_virtual_repository]
-✅ Virtual repository "ml-models-virtual" created
-   - Includes: ml-models-local, ml-huggingface-remote
-   - Default deployment: ml-models-local
-   - Project: ml-code-review
-
-Your ML pipeline infrastructure is ready. Developers should pull 
-models from: https://yourcompany.jfrog.io/ml-models-virtual
-```
-
-**Spoken:**
-
-> *"Four tool calls. One conversation turn. A complete ML pipeline infrastructure — fully governed, project-scoped, with the right package types and caching settings."*
-
-> *"What just happened would normally take 6 manual steps across 3 UI screens. And everything is still governed — repos created with the right policies inherited from the project."*
-
-> *"This is the vision: AI tooling governing AI infrastructure. The JFrog MCP Server is itself an AI-native interface to a platform designed for AI governance."*
-
----
-
-## Act 4 — Shadow AI
-
-### Step 4.1 — Navigate to Shadow AI
-
-**Switch to:** Browser (JFrog AI Catalog tab)
-
-**Navigate to:** AI Catalog → Shadow AI (or AI Gateway → Shadow AI panel)
+**Click on:** `microsoft/codebert-base`
 
 **Point out:**
-- "3 unmanaged AI providers detected" (or your seeded count)
-- Service account: direct OpenAI API calls (production service)
-- CI/CD job: Anthropic API calls (build-time code generation)
-- Developer workstation: Gemini API calls
+- Security scan result: Critical, Malicious Code
+- Evidence tab: file `pytorch_model.bin`, pickle payload, deserialization → RCE vector
+- CVSS: 9.3
+- Curation policy: BLOCKED on ingest
 
 **Spoken:**
-
-> *"Before AI Catalog, these were invisible. A service account in production is making direct OpenAI API calls. A CI job is calling Anthropic. A developer is using Gemini. All outside any governance, policy, or visibility."*
-
-> *"This is the same sprawl JFrog solved for open-source packages a decade ago. Every team was pulling dependencies from different sources, with no inventory and no control. Artifactory became the single governed source. AI Catalog does the same for AI."*
-
-### Step 4.2 — Show governance action
-
-**Point out:** "Route through AI Gateway" action on one of the shadow AI entries
-
-**Spoken:**
-
-> *"One click routes this to the AI Gateway — now it's governed, metered, and policy-enforced. Same experience developers already have with Artifactory."*
+> *"This model has a malicious pickle payload. Loading it with `torch.load()` executes arbitrary code. JFrog's security engine found this on ingest. Because of this, I would never allow this model into any project — it will stay blocked in Discovery."*
 
 ---
 
-## Closing (1 minute)
+### Step 2.3 — Allow the Approved Model
+
+**Click on:** `facebook/bart-large-cnn`
+
+**Point out first:**
+- Clean security scan: no findings
+- License: MIT
+- Source: HuggingFace
+
+**Click "Allow"**
+
+**In the Allow dialog:**
+- Select project: `ml-code-review`
+- *System check:* "HuggingFace connection for ml-code-review already exists — reusing ml-huggingface-connection"
+- Confirm
 
 **Spoken:**
-
-> *"Let's recap what we just saw:"*
->
-> *"Act 1: An AI assistant queried JFrog for Hugging Face models — live — checking curation status and vulnerabilities in one conversation."*
->
-> *"Act 2: We saw a model with a real pickle payload, blocked automatically by Xray and a curation policy. And the clean model with complete governance lineage."*
->
-> *"Act 3: Natural language created a complete ML pipeline infrastructure in one conversation — project, local repo, HuggingFace proxy, virtual repo."*
->
-> *"Act 4: Shadow AI surfaced three unmanaged AI providers your team is already using, ready to be governed."*
->
-> *"JFrog AI Catalog extends the same supply chain trust model that protects your software today — to AI. One platform. One policy. Total visibility."*
+> *"I'm allowing this model for the `ml-code-review` project. The system checks whether a HuggingFace connection already exists for this project — it does, so no new credentials are needed. The model is now in the Registry for this project."*
 
 ---
 
-## Q&A Prep
+### Step 2.4 — Show the Registry
 
-See [`docs/faq.md`](faq.md) for anticipated questions and answers.
+**Navigate to:** AI/ML → Registry → filter project: `ml-code-review`
+
+**Point out:**
+- `facebook/bart-large-cnn` is now visible — ALLOWED
+- `microsoft/codebert-base` is absent — blocked, never allowed
+- This is what the `ml-code-review` team sees when browsing approved AI assets
+
+**Spoken:**
+> *"The Registry is the developer's view. Only assets approved for their project. They don't see blocked models. They don't see assets approved for other teams."*
+
+---
+
+## Act 3 — Developer Integration via AI Gateway (3 min)
+
+### Step 3.1 — Generate a Project-Scoped Token
+
+**Navigate to:** AI/ML → Registry → `facebook/bart-large-cnn` → click **"Use Model"**
+
+**In the "Use Model" pane:**
+- Authenticate with JFrog credentials
+- Token generated: `jfrog-token-ml-code-review-...` (project-scoped)
+- Code snippets shown for Python, JavaScript, cURL
+
+**Spoken:**
+> *"The developer clicks 'Use Model.' They authenticate with their JFrog account. They get a JFrog-issued token — not OpenAI's API key. The token is scoped to the `ml-code-review` project."*
+
+---
+
+### Step 3.2 — Show the Generated Code Snippet
+
+**Display the Python snippet:**
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="<jfrog-project-scoped-token>",          # JFrog token — NOT the provider key
+    base_url="https://yourcompany.ml.jfrog.io/v1"   # JFrog AI Gateway
+)
+
+response = client.chat.completions.create(
+    model="HuggingFace/facebook/bart-large-cnn",
+    messages=[{"role": "user", "content": "Summarize: ..."}]
+)
+```
+
+**Spoken:**
+> *"Look at this code. Standard OpenAI SDK — but the `api_key` is a JFrog token, and the `base_url` is the JFrog AI Gateway at `ml.jfrog.io`. The developer's code never touches HuggingFace or OpenAI directly. All calls route through JFrog — where they're logged, metered, and policy-enforced."*
+
+> *"If this developer leaves the company, you revoke the JFrog token. The provider's API key is never compromised. If the connection's API key needs rotating, you rotate it in one place — the JFrog Secret — and every project that uses that connection gets the update automatically."*
+
+---
+
+## Act 4 — MCP Registry + Tool Policies (3 min)
+
+### Step 4.1 — Show MCP Registry in Admin View
+
+**Navigate to:** AI/ML → Registry → MCP Servers tab → project: `ml-code-review`
+
+**Point out:**
+- `github-mcp` — active, project-scoped
+- `jfrog-mcp` — active, project-scoped
+- No other MCP servers visible — only what the admin registered for this project
+
+**Spoken:**
+> *"MCP servers go through the same governance flow as models. An admin adds them to a project's MCP Registry. Developers in this project can use these — and nothing else."*
+
+---
+
+### Step 4.2 — Show Tool Policies
+
+**Click on:** `github-mcp` → **Identified Tools** tab
+
+**Show the tool list:** ~40 tools including `get_file_contents`, `list_repositories`, `create_repository`, `delete_repository`, etc.
+
+**Navigate to:** Tool Policy configuration
+
+**Show:**
+- Allow list: `^get_.*`, `^list_.*`, `^search_.*`
+- Deny list: `.*delete.*`, `.*push.*`, `.*merge.*`
+
+**Spoken:**
+> *"This is tool-level governance. The regex allow list: tools matching `get_*` and `list_*` are permitted — read operations. The deny list blocks `*delete*` — all delete operations are blocked regardless of other rules. This policy is per MCP server, per project. The data-science project might have different policies for the same MCP server."*
+
+---
+
+### Step 4.3 — Developer MCP Gateway Setup
+
+**Switch to terminal:**
+
+```bash
+# One-time setup — run as developer
+export HOST_DOMAIN=yourcompany.jfrog.io
+export PROJECT_KEY=ml-code-review
+export CLIENT_ID=claude
+
+bash <(curl -fL https://releases.jfrog.io/artifactory/jfrog-cli-plugins/mcp-gateway/latest/scripts/mcp-gateway.sh)
+```
+
+**Highlight:** `PROJECT_KEY=ml-code-review` — the project is the governance handle
+
+**Show the Claude Code config generated (`.mcp.json`):**
+```json
+{
+  "mcpServers": {
+    "JFrogMCPGateway": {
+      "command": "jf",
+      "args": ["mcp-gateway", "run"]
+    }
+  }
+}
+```
+
+**Spoken:**
+> *"The developer runs one install command with their `PROJECT_KEY`. The gateway knows which project's approved MCP servers to expose. When Claude Code calls a tool, it goes through the JFrog MCP Gateway, which enforces the tool policies we saw. A `delete_repository` call would be rejected. A `get_file_contents` call would go through."*
+
+> *"The developer's AI coding assistant is now operating inside the project's governance boundary — the same boundary that governs which AI models they can call, which MCP servers they can access, and which tools within those servers they can execute."*
+
+---
+
+## Act 5 — Shadow AI → Project Allowance (2 min)
+
+**Navigate to:** AI/ML → Discovery → Shadow AI panel (or AI/ML → AI Gateway → Shadow AI)
+
+**Show:**
+- "3 unmanaged AI API calls detected"
+- `anthropic.com` calls from a CI job (not routed through AI Gateway)
+- `generativelanguage.googleapis.com` calls from a developer workstation (direct Gemini)
+
+**Spoken:**
+> *"Before AI Catalog, these were invisible. A CI job is calling Anthropic directly — bypassing the project governance entirely. The developer's machine is hitting Gemini with a hardcoded API key."*
+
+---
+
+**Show the "Allow to Project" action on the Anthropic entry:**
+
+Click "Allow" → in the dialog:
+- Select project: `ml-code-review`
+- System: "No Anthropic connection exists for ml-code-review — create one?"
+- Yes: enter connection name `ml-anthropic-connection`, create API key secret
+- Confirm
+
+**Spoken:**
+> *"The governance action here isn't 'block and break the workflow' — it's 'bring it under project governance.' We're creating an Anthropic connection for the `ml-code-review` project. From this point, the CI job's calls should route through the AI Gateway using a project token. The raw API key is replaced. The developer's code gets updated to use the gateway endpoint."*
+
+> *"Same way JFrog solved open-source sprawl with Artifactory — one governed source, everything flows through — we're solving AI sprawl. One platform. Project-scoped. Total visibility."*
+
+---
+
+## Closing (1 min)
+
+> *"Let's recap the governance model:"*
+>
+> *"A Project is the unit. You allow models, connect providers, and register MCP servers at the project level. Different teams get different AI access — enforced, not just configured."*
+>
+> *"Developers get project-scoped JFrog tokens, not raw API keys. All LLM calls route through the AI Gateway. MCP tool calls route through the MCP Gateway with project-scoped tool policies."*
+>
+> *"Shadow AI detection feeds back into this loop. Unmanaged calls get brought under project governance — not blocked."*
+>
+> *"JFrog AI Catalog brings the same supply chain trust model to AI. One platform. Project-scoped. Total visibility."*
+
+---
+
+## Q&A Preparation
+
+See [`docs/faq.md`](faq.md) for full Q&A prep.
 
 Key questions to expect:
-- "How does this differ from just using Hugging Face directly?"
-- "What happens if our models are private / internal?"
-- "Does the MCP Server need to be self-hosted?"
-- "How does Shadow AI detection work technically?"
-- "What's the licensing model for AI Catalog?"
+- "How is this different from just using OpenAI's organization-level access controls?"
+- "What if a team needs a model that's not yet in Discovery?"
+- "How does the AI Gateway affect latency?"
+- "Can we use this with self-hosted models?"
+- "Is the MCP Gateway generally available?"

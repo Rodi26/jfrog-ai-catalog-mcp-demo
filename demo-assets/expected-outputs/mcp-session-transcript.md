@@ -1,190 +1,306 @@
-# MCP Session Transcript — Offline Fallback
+# Demo Offline Reference Transcript
 
-Use this as the fallback reference if live MCP calls are not available during the demo.
-Read this aloud or display it as if Claude were responding in real time.
+Use this when the live JFrog AI Catalog UI is unavailable.
 
-**Note to presenter:** When using the offline mode, narrate: *"What you're seeing is a recorded session from our demo environment. I'll show you a live version once we have network access, or we can schedule a follow-up."*
-
----
-
-## Act 1 — Model Discovery
-
-**Presenter:** *(Pastes the Act 1 prompt)*
-
-> I need to find Hugging Face models suitable for code summarization. Show me what's available in JFrog, check their curation status, and flag any known vulnerabilities.
+**When using offline mode:** Narrate each section as if walking through the live UI. Use screenshots from `../screenshots/` for visual support.
 
 ---
 
-**Claude:** I'll check what Hugging Face models are available in your JFrog instance and evaluate their security status.
+## Act 1 — Project Setup + Provider Connections
 
-*Calling `jfrog_get_package_info`...*
+**Narrator:** "I'm in the JFrog Platform — navigating to Administration → Projects."
 
-Found 3 HuggingFace models available in your JFrog Artifactory:
-
-| Model | Size | Package Type | Last Updated |
-|-------|------|-------------|--------------|
-| `facebook/bart-large-cnn` | 2.3 GB | Machine Learning | 2026-03-15 |
-| `microsoft/codebert-base` | 499 MB | Machine Learning | 2026-03-10 |
-| `salesforce/codet5-base` | 892 MB | Machine Learning | 2026-03-12 |
-
-Now checking curation status for each...
-
-*Calling `jfrog_get_package_curation_status` (facebook/bart-large-cnn)...*
-*Calling `jfrog_get_package_curation_status` (microsoft/codebert-base)...*
-*Calling `jfrog_get_package_curation_status` (salesforce/codet5-base)...*
-
-**Curation Status:**
-
-| Model | Status | Reason |
-|-------|--------|--------|
-| `facebook/bart-large-cnn` | ✅ **APPROVED** | Clean — passes all policies |
-| `microsoft/codebert-base` | 🚫 **BLOCKED** | Security violation detected |
-| `salesforce/codet5-base` | ✅ **APPROVED** | Clean — passes all policies |
-
-`microsoft/codebert-base` is blocked — checking vulnerability details...
-
-*Calling `jfrog_get_package_version_vulnerabilities` (microsoft/codebert-base)...*
-
-**Vulnerability Report — `microsoft/codebert-base`:**
+### Project view: ml-code-review
 
 ```
-Severity:    Critical (CVSS 9.3)
-Type:        Malicious Code
-Category:    Pickle Deserialization
-File:        pytorch_model.bin
-Vector:      Deserialization → Arbitrary Code Execution
-Description: A malicious pickle payload was detected in the model
-             binary. Loading this model with torch.load() would
-             execute the embedded payload with the privileges of
-             the calling process.
-Policy:      block-malicious-ai-models (auto-blocked on ingest)
-Discovered:  2026-03-10T14:23:11Z
+Project Key:    ml-code-review
+Display Name:   ML Code Review
+Description:    Demo project for the AI Catalog governance walkthrough
+Members:        [admin, dev-team]
+Admin Privileges: Manage Members ✓  Manage Resources ✓  Index Resources ✓
 ```
 
-**Summary:**
-
-For code summarization, I recommend either:
-- **`facebook/bart-large-cnn`** (APPROVED) — 2.3 GB, strong summarization performance
-- **`salesforce/codet5-base`** (APPROVED) — 892 MB, lighter footprint, optimized for code
-
-Avoid `microsoft/codebert-base` — it is blocked due to a critical malicious code finding. JFrog's curation policy prevented it from being downloadable.
+**Talking point:** *"A JFrog Project is the governance boundary. Everything we do — allowing models, connecting providers, registering MCP servers — is scoped to this project."*
 
 ---
 
-## Act 1 — Follow-up (Security Deep-Dive Extension)
+### Connections: AI/ML Settings → Connections
 
-**Presenter:** *(Pastes the follow-up prompt)*
+```
+Connections in ml-code-review:
 
-> Tell me more about the security issues with microsoft/codebert-base. What exactly was found, what's the attack vector, and why was it blocked?
+┌────────────────────────────────────────────────────────────────────┐
+│  Name                     │ Project         │ Provider    │ Status │
+├────────────────────────────────────────────────────────────────────┤
+│  ml-openai-connection     │ ml-code-review  │ OpenAI      │ Active │
+│  ml-huggingface-connection│ ml-code-review  │ HuggingFace │ Active │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+**Detail view — ml-openai-connection:**
+```
+Name:           ml-openai-connection
+Project:        ml-code-review
+Provider:       OpenAI
+API Key Secret: openai-api-key (stored securely — value not shown)
+Created:        2026-04-01
+Status:         Active
+```
+
+**Talking point:** *"Each connection is a unique (provider, project) pair. The API key is stored as a JFrog Secret. Developers never see it."*
 
 ---
 
-**Claude:** Let me pull the detailed security evidence for `microsoft/codebert-base`.
+## Act 2 — Model Discovery & Allowance
 
-*Calling `jfrog_get_package_version_vulnerabilities` (microsoft/codebert-base, detailed)...*
-*Calling `jfrog_get_package_curation_status` (microsoft/codebert-base)...*
+### Discovery view: AI/ML → Discovery
 
-**Detailed Security Report — `microsoft/codebert-base`:**
-
-**What was found:**
-The model's primary weights file (`pytorch_model.bin`) contains a Python pickle payload embedded within the serialized object. Pickle is Python's built-in serialization format — PyTorch uses it via `torch.load()`. The payload triggers on deserialization.
-
-**Attack Vector:**
 ```
-Stage 1: Developer runs: model = torch.load("pytorch_model.bin")
-Stage 2: Python deserializes the object graph
-Stage 3: Malicious __reduce__ method executes during deserialization
-Stage 4: Arbitrary code runs with the calling process's privileges
-         (potentially: data exfiltration, backdoor installation,
-          lateral movement within the ML training environment)
+Filters: Status: [Unallowed ▼]  Type: [All ▼]  Search: [bart       ]
+
+Results:
+┌─────────────────────────────────────────────────────────────────────┐
+│  Model                          │ Type      │ Status     │ Security │
+├─────────────────────────────────────────────────────────────────────┤
+│  facebook/bart-large-cnn        │ Package   │ Unallowed  │ ✅ Clean  │
+│  microsoft/codebert-base        │ Package   │ Unallowed  │ 🚫 Critical│
+│  salesforce/codet5-base         │ Package   │ Unallowed  │ ✅ Clean  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
-
-**JFrog's Detection:**
-JFrog's PickleScan engine inspected the serialized object graph and identified a `__reduce__` override that does not correspond to any legitimate PyTorch tensor or model component. The 96% evidence threshold was met — this is not a false positive.
-
-**Why It Was Blocked:**
-Curation policy `block-malicious-ai-models` evaluates all models on ingest:
-- Condition: `maliciousCode = true`
-- Action: `blockDownload: true`
-- Result: Model was flagged at ingest time and never served to any developer
-
-The model cannot be downloaded from `jfrog-ai-demo-virtual` — JFrog returns a 403 with a curation policy violation message.
-
-**Recommendation:** Do not use this model. Use `facebook/bart-large-cnn` or `salesforce/codet5-base` instead.
 
 ---
 
-## Act 3 — MCP Project Setup
+### Blocked model detail: microsoft/codebert-base
 
-**Presenter:** *(Pastes the Act 3 prompt)*
+```
+Model:          microsoft/codebert-base
+Provider:       HuggingFace
+Size:           499 MB
+Status:         BLOCKED (Curation Policy)
+```
 
-> Create a new JFrog project called "ml-code-review" and set up repositories for a Python ML pipeline: a local repository for storing approved models, a remote HuggingFace proxy repository, and a virtual repository that aggregates both with "ml-" prefix. Use appropriate settings for a machine learning project.
+**Security Evidence tab:**
+```
+Severity:       Critical
+CVSS Score:     9.3
+Type:           Malicious Code
+Category:       Pickle Deserialization
+File:           pytorch_model.bin
+Attack Vector:  Deserialization → Arbitrary Code Execution
+Description:    A malicious pickle payload was detected embedded in the
+                model binary. Loading this model with torch.load() would
+                execute the embedded payload with the calling process
+                privileges.
+Policy:         block-malicious-ai-models (triggered on ingest)
+Discovered:     2026-03-10T14:23:11Z
+```
+
+**Talking point:** *"This model has a real malicious payload. JFrog's evidence engine found it on ingest. Because of this, I would never allow this into any project."*
 
 ---
 
-**Claude:** I'll create the `ml-code-review` project and set up the ML pipeline repositories.
+### Allow flow: facebook/bart-large-cnn
 
-*Calling `create_project`...*
+**Model detail view:**
+```
+Model:          facebook/bart-large-cnn
+Provider:       HuggingFace
+Size:           2.3 GB
+License:        MIT ✅
+Security:       Clean — no findings
+Status:         Unallowed
+```
 
-✅ **Project created:** `ml-code-review`
-- Project key: `ml-code-review`
-- Display name: ML Code Review
-- Admin privileges: enabled
-- Storage quota: default (inherits organization limit)
+**Allow dialog:**
+```
+Allow model: facebook/bart-large-cnn
 
-Now creating the repositories...
+Select Project: [ ml-code-review ▼ ]
 
-*Calling `create_local_repository`...*
+Provider Connection:
+  ✓ ml-huggingface-connection (already configured for this project)
+    → No new credentials needed
 
-✅ **Local repository created:** `ml-models-local`
-- Package type: Machine Learning
-- Project: ml-code-review
-- Xray indexing: enabled
-- Description: Approved ML models for code review pipeline
+[ Cancel ]  [ Allow ]
+```
 
-*Calling `create_remote_repository`...*
-
-✅ **Remote repository created:** `ml-huggingface-remote`
-- Remote URL: https://huggingface.co
-- Package type: Machine Learning
-- Project: ml-code-review
-- Caching: enabled (local store)
-- Xray indexing: enabled
-- Description: HuggingFace Hub proxy for ML code review pipeline
-
-*Calling `create_virtual_repository`...*
-
-✅ **Virtual repository created:** `ml-models-virtual`
-- Includes: ml-models-local, ml-huggingface-remote
-- Default deployment: ml-models-local
-- Project: ml-code-review
-- Description: Unified governed access for ML code review models
+**After Allow:**
+```
+✅ facebook/bart-large-cnn is now allowed in project ml-code-review
+   It will appear in the Registry for ml-code-review members.
+```
 
 ---
 
-**Your ML pipeline infrastructure is ready.**
+### Registry view: AI/ML → Registry (project: ml-code-review)
 
-Developers should pull models from:
 ```
-https://yourcompany.jfrog.io/artifactory/ml-models-virtual/
+Project: ml-code-review
+
+Models:
+┌─────────────────────────────────────────────────────────────────────┐
+│  Model                       │ Provider    │ Status   │ License     │
+├─────────────────────────────────────────────────────────────────────┤
+│  facebook/bart-large-cnn     │ HuggingFace │ Allowed  │ MIT         │
+│  salesforce/codet5-base      │ HuggingFace │ Allowed  │ Apache 2.0  │
+└─────────────────────────────────────────────────────────────────────┘
+Note: microsoft/codebert-base is NOT shown — blocked, never allowed.
 ```
 
-**Python usage example:**
+**Talking point:** *"The Registry is what developers see. Only their project's approved assets. The blocked model is invisible to them."*
+
+---
+
+## Act 3 — Developer Integration via AI Gateway
+
+### "Use Model" pane: facebook/bart-large-cnn
+
+```
+How to use facebook/bart-large-cnn
+
+Your project token (scoped to ml-code-review):
+  jfrog-ml-code-review-eyJ...  [Copy]
+
+AI Gateway endpoint:
+  https://yourcompany.ml.jfrog.io/v1
+
+Code snippet:
+```
+
 ```python
-import os
-from huggingface_hub import snapshot_download
+from openai import OpenAI
 
-# Configure HuggingFace to use JFrog as the endpoint
-os.environ["HF_ENDPOINT"] = "https://yourcompany.jfrog.io/artifactory/ml-models-virtual"
+client = OpenAI(
+    api_key="jfrog-ml-code-review-eyJ...",            # JFrog project token
+    base_url="https://yourcompany.ml.jfrog.io/v1"    # JFrog AI Gateway
+)
 
-# Download via the governed proxy — Xray scanning happens automatically
-model_path = snapshot_download("facebook/bart-large-cnn")
+response = client.chat.completions.create(
+    model="HuggingFace/facebook/bart-large-cnn",
+    messages=[
+        {"role": "user", "content": "Summarize this function: ..."}
+    ]
+)
+
+print(response.choices[0].message.content)
 ```
 
-The curation and Xray policies from the organization default will automatically apply to all models pulled through `ml-models-virtual`.
+**Talking point:** *"The developer gets a JFrog token — not the HuggingFace API key. The base_url is the JFrog AI Gateway. All calls are proxied through JFrog, using the stored Connection credential."*
 
 ---
 
-## End of Offline Transcript
+## Act 4 — MCP Registry + Tool Policies
 
-*If you need to demonstrate Act 4 (Shadow AI), use the screenshots in `demo-assets/screenshots/` and narrate using the talking points in `docs/talking-points.md`.*
+### MCP Registry view: project ml-code-review
+
+```
+MCP Servers in ml-code-review:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  Server       │ Type   │ Status │ Tools Available │ Deny Rules       │
+├─────────────────────────────────────────────────────────────────────┤
+│  github-mcp   │ Remote │ Active │ 24 (of 40)      │ .*delete.*, ...  │
+│  jfrog-mcp    │ Remote │ Active │ 12 (of 22)      │ .*delete.*, ...  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Tool Policy: github-mcp
+
+```
+github-mcp — Tool Policy for ml-code-review
+
+Available tools (40 total):
+  get_file_contents, list_repositories, list_commits,
+  search_repositories, get_pull_request, list_branches,
+  create_repository ✗ (denied), delete_repository ✗ (denied),
+  push_files ✗ (denied), merge_pull_request ✗ (denied), ...
+
+Allow list (regex):
+  ✓ ^get_.*       →  24 tools matched
+  ✓ ^list_.*      →  (included above)
+  ✓ ^search_.*    →  (included above)
+
+Deny list (regex):
+  ✗ .*delete.*    →  blocks delete_repository, delete_branch, etc.
+  ✗ .*push.*      →  blocks push_files
+  ✗ .*merge.*     →  blocks merge_pull_request
+```
+
+**Talking point:** *"Tool-level governance. The team can use GitHub read tools. Delete, push, and merge are blocked. Per project. Per MCP server."*
+
+---
+
+### MCP Gateway setup (terminal)
+
+```bash
+$ export HOST_DOMAIN=yourcompany.jfrog.io
+$ export PROJECT_KEY=ml-code-review
+$ export CLIENT_ID=claude
+
+$ bash <(curl -fL https://releases.jfrog.io/artifactory/jfrog-cli-plugins/mcp-gateway/latest/scripts/mcp-gateway.sh)
+
+Installing JFrog CLI...                  ✓
+Installing mcp-gateway plugin...         ✓
+Authenticating with yourcompany.jfrog.io ✓
+Setting active project: ml-code-review   ✓
+Configuring Claude Code...               ✓
+
+Magic Link: https://yourcompany.jfrog.io/ml/mcp-gateway/auth?token=...
+→ Open in browser to complete setup
+
+Setup complete. Run: jf mcp-gateway run
+```
+
+**Talking point:** *"`PROJECT_KEY` is the governance handle. The gateway knows which MCP servers and which tool policies apply to this developer's project."*
+
+---
+
+## Act 5 — Shadow AI → Project Allowance
+
+### Shadow AI panel
+
+```
+Shadow AI — Unmanaged AI API Calls Detected
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Provider    │ Caller                  │ Calls │ Last Seen  │ Action    │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Anthropic   │ CI job: build-service   │ 1,247 │ 5 min ago  │ [Allow]   │
+│  Gemini      │ dev: alice@company.com  │  342  │ 2 hr ago   │ [Allow]   │
+│  OpenAI      │ svc: analytics-api      │  891  │ 1 hr ago   │ [Allow]   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Talking point:** *"A CI job is calling Anthropic directly — bypassing governance entirely. A developer's machine is hitting Gemini with a hardcoded API key."*
+
+---
+
+### "Allow to Project" dialog for Anthropic
+
+```
+Allow: Anthropic API (from CI job: build-service)
+
+Select Project: [ ml-code-review ▼ ]
+
+Provider Connection:
+  No Anthropic connection found for ml-code-review
+  → Create new connection?  [Yes ▼]
+
+  Connection name:    ml-anthropic-connection
+  API Key Secret:     [ anthropic-api-key ▼ ] (create new)
+
+[ Cancel ]  [ Allow and Create Connection ]
+```
+
+**After Allow:**
+```
+✅ Anthropic allowed in ml-code-review
+   Connection ml-anthropic-connection created.
+   
+   Next steps for the CI job:
+   • Replace ANTHROPIC_API_KEY with a JFrog project token
+   • Update base_url to: https://yourcompany.ml.jfrog.io/v1
+   • Migration guide: docs.jfrog.com/ai-ml/docs/integrate-models-in-your-code
+```
+
+**Talking point:** *"The governance action is 'bring it under project governance' — not block and break. The call is now going to route through the AI Gateway, using the JFrog project token. The developer experience doesn't change; the governance layer is inserted."*

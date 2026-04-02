@@ -1,129 +1,125 @@
 # Talking Points, Key Messages, and Q&A Prep
 
-For sales engineers and solution architects presenting this demo.
+---
+
+## The Single Most Important Message
+
+> **In JFrog AI Catalog, a Project is the governance boundary. Every model allowance, every provider connection, every MCP server registration — is scoped to a Project. Developers never hold raw provider API keys. Everything routes through the JFrog AI Gateway or MCP Gateway, enforced at the project level.**
 
 ---
 
-## Core Message
-
-> **JFrog AI Catalog is the "npm registry" equivalent for the AI era — a single, governed platform that brings the same trust model proven in software supply chains to AI assets: Hugging Face models, MCP servers, and agent skills.**
-
----
-
-## Why This Matters (The Problem)
+## The Core Problem
 
 - AI adoption is accelerating faster than governance
-- Data scientists pull models directly from Hugging Face — no scanning, no policy, no inventory
-- Developers wire up OpenAI/Anthropic calls outside IT visibility
-- Agents consume unvetted MCP servers from random GitHub repos
-- This is the **same sprawl JFrog solved for open-source packages** — and JFrog AI Catalog is the solution
+- Data scientists pull models directly from Hugging Face — no policy, no inventory
+- Developers hardcode OpenAI API keys — no rotation, no metering, no audit trail
+- CI/CD jobs call Anthropic outside any governance boundary
+- Agents consume MCP servers from random GitHub repos with no tool-level control
 
-**Anchor stat:** JFrog researchers discovered 3 critical PickleScan zero-days in 2025 (CVSS 9.3) in publicly available Hugging Face models. This is not a theoretical risk.
+This is the same sprawl JFrog solved for open-source packages with Artifactory. The difference: when an open-source package has a CVE, the blast radius is a build. When an AI model has a malicious payload, the blast radius is a trained model in production or compromised inference infrastructure.
 
 ---
 
 ## Key Differentiators
 
-### 1. Evidence-based security (not just scanning)
-JFrog's evidence engine eliminates 96% of false positives. When it flags a model, it's real — with file-level scan evidence, CVE data, and attack vector analysis. Competitor tools produce noisy results that teams ignore.
+### 1. Project-based governance (not global allow/block)
 
-### 2. Complete supply chain lineage
-Every model has a governance trail: when it was pulled, what was scanned, what policy applied, who approved it. Auditors love this. Most AI governance tools show you policies but not evidence.
+Unlike competitor tools that apply governance globally, JFrog AI Catalog governs at the Project level. Team A can use DeepSeek; Team B is restricted to OpenAI. This is not a configuration option — it is the fundamental architecture. Provider-project pairs are the atomic governance unit.
 
-### 3. The MCP Server (AI-native interface)
-JFrog isn't just governing AI — it's AI-native itself. The JFrog MCP Server turns the entire platform into a conversational interface for AI coding assistants. Developers manage infrastructure, query security data, and set up pipelines in natural language.
+### 2. Developer tokens, not raw API keys
 
-### 4. Shadow AI detection
-Automatic discovery of unmanaged AI consumption — without requiring app code changes. Same way Artifactory revealed open-source sprawl, AI Catalog reveals AI sprawl.
+Developers get JFrog project-scoped tokens. The raw provider API key is stored in JFrog Secrets, referenced by a Connection, and used by the AI Gateway at proxy time. Developers cannot exfiltrate provider credentials. Access revocation is a single JFrog token invalidation.
 
-### 5. Unified with your existing toolchain
-If you already use Artifactory and Xray, AI Catalog is an extension — same policies, same RBAC, same CI/CD integration. Not a separate product to evaluate and integrate.
+### 3. Tool-level MCP governance
 
----
+JFrog's MCP Registry governs not just which MCP servers are accessible, but which individual tools within each server a project can use. Regex-based allow/deny policies per server per project. A `delete_repository` call from a developer's AI assistant can be blocked without restricting read operations on the same server.
 
-## Competitive Angles
+### 4. Evidence-based security scanning
 
-### vs. "just use Hugging Face directly"
-Hugging Face has basic safety features, but no enterprise governance:
-- No integration with your RBAC / IAM
-- No organization-wide curation policies
-- No lineage or evidence trail for compliance
-- No shadow AI detection
-- No integration with your existing Xray policies
+JFrog's Xray doesn't just flag models — it provides file-level scan evidence: exactly which file, what type of payload, what attack vector. This eliminates false positives. When JFrog blocks a model, it shows you why. Grounded in real security research: JFrog discovered 3 critical PickleScan zero-days (CVSS 9.3) in Hugging Face models in 2025.
 
-JFrog Artifactory proxies Hugging Face — you get all the models, plus enterprise governance.
+### 5. Shadow AI detection feeds into governance
 
-### vs. standalone AI security tools (e.g., Protect AI, Robust Intelligence)
-- Point solutions; don't integrate with your artifact management
-- No MCP Server / AI-native access
-- Separate toolchain = separate compliance process
-- JFrog brings it all together in one platform your team already knows
-
-### vs. "we'll build our own governance layer"
-- Time-to-value: JFrog AI Catalog is production-ready now
-- Model scanning requires deep ML security research — JFrog has it; most teams don't
-- Building your own means maintaining it; JFrog updates as new attack vectors emerge
+Shadow AI detection doesn't just surface unmanaged calls — it provides a governance path. The "Allow to project" action brings unmanaged calls under the same Project governance model, without breaking existing developer workflows.
 
 ---
 
 ## Audience-Specific Messages
 
 ### Security Engineers / CISOs
-- AI Catalog gives you the same control over AI models as Xray gives you over open-source packages
+- AI Catalog gives you the same control over AI models as Xray gives you over open-source packages — at the project level
+- Provider credentials are stored in JFrog Secrets — no more API keys scattered across developer machines and CI jobs
+- Complete audit trail: every model allowance, every AI Gateway call, every MCP tool invocation is logged per project
 - Shadow AI detection fills the governance gap before a breach
-- Evidence-based blocking means fewer false positives and faster incident response
-- Compliance: every model has a complete, auditable governance trail
 
 ### Platform Engineers / DevOps
-- AI Catalog extends your existing Artifactory investment — same CLI, same pipelines
-- Virtual repositories mean developers always pull from a single governed URL
-- MCP Server automates JFrog administration through natural language
-- GitHub Actions integration keeps AI governance in-pipeline without extra tooling
+- Provider Connections centralize credential management — rotate an API key in one place, update takes effect across all projects using that connection
+- The AI Gateway is a proxy you don't have to build — JFrog handles routing, metering, and logging
+- MCP Gateway with `PROJECT_KEY` integrates with your existing JFrog project structure
+- GitHub Actions + OIDC integration keeps AI governance in-pipeline
 
 ### Data Scientists / ML Engineers
-- Governed Hugging Face access — all the models, with corporate approval
-- Model cards in AI Catalog surface the security and licensing info you need before you integrate
-- No friction: pull from the virtual repo URL, JFrog handles governance transparently
+- Project-approved models appear in the Registry — one place to find what your team is authorized to use
+- "Use Model" generates ready-to-use code snippets; the developer just replaces their endpoint and key
+- All the HuggingFace models, with corporate governance transparently added
+- Model card in the Registry shows security scan results, license, and approval history
 
 ### Developer Advocates / SA Teams
-- The MCP demo is memorable and differentiating: AI tooling governing AI tooling
-- Reproducible scenario grounded in real JFrog security research
-- 12-minute format fits customer discovery calls and conference demos
+- The project-governance model is the differentiating story — not just "governance" but per-team governance with credential isolation
+- The token-not-key architecture is memorable: "developers never hold provider API keys"
+- Tool-level MCP policies are novel and compelling for technical audiences
+
+---
+
+## Competitive Angles
+
+### vs. "just use OpenAI's organization controls"
+OpenAI's organization-level access is all-or-nothing at the organization level. JFrog AI Catalog provides project-level granularity within your organization — different teams get different model access, with separate credential bindings and usage tracking. Additionally, JFrog governs not just OpenAI but every AI provider: HuggingFace, Anthropic, AWS Bedrock, NVIDIA NIM, and internal models.
+
+### vs. standalone AI security tools
+Point solutions (Protect AI, Robust Intelligence) scan models but don't integrate with your artifact management or provide the project-scoped credential model. JFrog AI Catalog brings security, governance, and access management together in the same platform your team already uses for software supply chain.
+
+### vs. "we'll build our own AI gateway"
+Building an AI proxy requires: credential management, per-project routing, usage metering, audit logging, provider SDK compatibility, and ongoing maintenance as providers update their APIs. JFrog has built and maintains this. Time-to-value: hours, not months.
+
+### vs. cloud provider AI governance
+AWS Bedrock, Azure AI, and GCP Vertex have governance within their own ecosystems. JFrog AI Catalog provides cross-cloud, cross-provider governance in one platform — including self-hosted models and Hugging Face, which cloud AI services don't govern.
 
 ---
 
 ## Anticipated Objections
 
-### "We don't use Hugging Face"
-AI Catalog governs any AI asset: internal models, OpenAI/Anthropic API calls, NVIDIA NIM, Google Vertex. The Hugging Face scenario is illustrative — the governance model applies to whatever AI your team uses.
+### "We don't use HuggingFace"
+AI Catalog governs any AI asset: OpenAI, Anthropic, Gemini, AWS Bedrock, NVIDIA NIM, custom models, and MCP servers. The HuggingFace scenario is illustrative — the project governance model applies to all of them.
 
-### "Our models are proprietary / air-gapped"
-Artifactory's local repositories support fully air-gapped model storage. The same curation and Xray scanning works on internal models. JFrog never needs to reach an external registry.
+### "How does the AI Gateway affect latency?"
+The JFrog AI Gateway adds minimal latency — typically 10–30ms of proxy overhead. For LLM inference workloads where model response time is measured in seconds, this is negligible. The Gateway is hosted on JFrog SaaS infrastructure geographically close to major cloud regions.
 
-### "The MCP Server is still in beta"
-The official remote MCP Server is in open beta for SaaS. It's stable enough for demos and internal use. GA timeline: H1 2026. The underlying JFrog platform APIs are production-grade.
+### "Can we use this for self-hosted models?"
+Yes. Local and remote MCP servers are supported. For model inference, NVIDIA NIM and similar self-hosted providers are supported via Artifactory local repositories and Xray scanning. The AI Gateway routes to any configured connection.
 
-### "We're already locked into [other vendor]"
-AI Catalog integrates with existing CI/CD tools (GitHub Actions, Jenkins, GitLab) and model frameworks (PyTorch, TensorFlow, Hugging Face `transformers`). It's additive — not a rip-and-replace.
+### "Is the MCP Gateway generally available?"
+The MCP Registry reached GA in March 2026. The MCP Gateway (`jf mcp-gateway run`) is the developer-facing runtime. Confirm current availability with your JFrog account team for production use cases.
 
-### "How does this handle model drift / versioning?"
-Artifactory tracks model versions exactly like container image tags. Xray scans each version independently. AI Catalog maintains a complete history per model version.
+### "How do we migrate existing API keys?"
+Existing API keys are added as JFrog Secrets and referenced by Connections during the transition. Developer code is updated to use the gateway endpoint and a JFrog project token instead of the raw key. JFrog provides migration guides.
 
 ---
 
 ## What NOT to Say
 
-- Don't call it a "model hub" — JFrog's positioning is AI supply chain governance, not model discovery
-- Don't oversell Shadow AI detection depth — it varies by license tier and deployment model; confirm capabilities for the specific prospect
-- Don't promise MCP Registry as GA — announced but confirm availability at demo time
-- Don't claim the MCP Server is self-hosted-ready — it requires JFrog SaaS (for now)
+- Don't claim Shadow AI detection catches everything — it detects calls to known AI API providers and relies on AI Gateway telemetry where deployed
+- Don't promise MCP Registry on self-hosted Artifactory — currently SaaS-only for the remote MCP server
+- Don't imply the real `microsoft/codebert-base` model is malicious — the blocked state in the demo is seeded for illustrative purposes; the actual research is about other models discovered by JFrog's security team
+- Don't undersell the Project model — it's not just an organizational label, it's the enforcement mechanism
 
 ---
 
 ## Follow-Up Materials
 
-After the demo, offer:
-- Trial access to JFrog SaaS with AI Catalog enabled
-- JFrog AI Catalog documentation: https://jfrog.com/help/
-- JFrog security research blog posts on Hugging Face malware
-- JFrog MCP Server GitHub repo: https://github.com/jfrog/jfrog-mcp-server
+After the demo:
+- JFrog AI Catalog docs: https://docs.jfrog.com/ai-ml/docs/jfrog-ai-catalog-overview
+- Discover and allow models: https://docs.jfrog.com/ai-ml/docs/discover-and-allow-models
+- Connect AI providers: https://docs.jfrog.com/ai-ml/docs/connect-ai-providers
+- MCP Registry: https://docs.jfrog.com/ai-ml/docs/mcp-registry-overview
+- Free trial: https://jfrog.com/start-free/
