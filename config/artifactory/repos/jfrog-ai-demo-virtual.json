@@ -1,0 +1,11 @@
+{
+  "key": "jfrog-ai-demo-virtual",
+  "rclass": "virtual",
+  "packageType": "huggingfaceml",
+  "description": "Unified governed access point. Developers pull from here.",
+  "repositories": [
+    "jfrog-ai-demo-models-local",
+    "jfrog-ai-demo-huggingface-remote"
+  ],
+  "defaultDeploymentRepo": "jfrog-ai-demo-models-local"
+}

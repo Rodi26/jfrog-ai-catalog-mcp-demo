@@ -4,10 +4,11 @@
 # Usage: ./scripts/setup.sh
 #
 # What this creates:
-#   1. Artifactory repositories (HuggingFace remote + local + virtual)
-#   2. JFrog Project: ml-code-review
-#   3. Curation policy (blocks malicious models on ingest)
-#   4. Xray security policy
+#   1. Artifactory repositories via JFrog CLI (jf rt curl) and JSON templates
+#      under config/artifactory/repos/
+#   2. JFrog Project: ml-code-review (curl → Access API; body in config/access/)
+#   3. Curation policy (jf xr curl → Xray API)
+#   4. Xray security policy (jf xr curl → Xray API)
 #
 # Note on Connections and Model Allowances:
 #   Provider Connections and model allowances must be configured via the
@@ -82,29 +83,34 @@ echo ""
 echo "Creating demo project..."
 
 PROJECT_KEY="ml-code-review"
-project_exists=$(curl -sf -o /dev/null -w "%{http_code}" \
+PROJECT_BODY="$REPO_ROOT/config/access/project-ml-code-review.json"
+
+# jf rt curl prepends /artifactory/ to paths, but the Access API lives at
+# /access/. No "jf access curl" exists, so we use curl directly here.
+project_exists=$(curl -sS -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
   "$JFROG_URL/access/api/v1/projects/$PROJECT_KEY" 2>/dev/null || echo "000")
 
 if [[ "$project_exists" == "200" ]]; then
   warn "Project '$PROJECT_KEY' already exists — skipping"
+elif [[ ! -f "$PROJECT_BODY" ]]; then
+  warn "Project definition not found: $PROJECT_BODY — skipping project creation"
 else
-  curl -sf -X POST \
+  response=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+    -X POST \
     -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
-    "$JFROG_URL/access/api/v1/projects" \
-    -d "{
-      \"project_key\": \"$PROJECT_KEY\",
-      \"display_name\": \"ML Code Review\",
-      \"description\": \"Demo project for the AI Catalog governance walkthrough\",
-      \"storage_quota_bytes\": -1,
-      \"admin_privileges\": {
-        \"manage_members\": true,
-        \"manage_resources\": true,
-        \"index_resources\": true
-      }
-    }" >/dev/null && ok "Created project: $PROJECT_KEY" || \
-    warn "Project creation returned an error — may already exist or require manual creation"
+    -d @"$PROJECT_BODY" \
+    "$JFROG_URL/access/api/v1/projects" 2>&1) || true
+  http_code=$(echo "$response" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+  if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
+    ok "Created project: $PROJECT_KEY"
+  elif echo "$response" | grep -q "already exists" 2>/dev/null; then
+    warn "Project '$PROJECT_KEY' already exists — skipping"
+  else
+    warn "Project creation failed (HTTP $http_code). Response:"
+    echo "$response" | grep -v 'HTTP_CODE:' | head -5
+  fi
 fi
 
 # --- Create Artifactory Repositories ---
@@ -114,71 +120,56 @@ echo "Creating demo repositories..."
 
 create_repo_if_missing() {
   local key="$1"
-  local payload="$2"
+  local template_file="$2"
   local label="$3"
+  local status
 
-  status=$(curl -s -o /dev/null -w "%{http_code}" \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-    "$JFROG_URL/artifactory/api/repositories/$key" 2>/dev/null || echo "000")
+  if [[ ! -f "$template_file" ]]; then
+    fail "Repository template not found: $template_file"
+  fi
+
+  status=$(jf rt curl --server-id="$JFROG_SERVER_ID" -sS -o /dev/null -w "%{http_code}" \
+    "/api/repositories/$key" 2>/dev/null || echo "000")
 
   if [[ "$status" == "200" ]]; then
     warn "Repository '$key' already exists — skipping"
     return
   fi
 
-  # Capture both the response body and HTTP status for diagnostics
-  response=$(curl -s -w "\n%{http_code}" -X PUT \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
+  local tmpfile
+  tmpfile=$(mktemp)
+  local http_code
+  http_code=$(jf rt curl --server-id="$JFROG_SERVER_ID" -sS -o "$tmpfile" -w "%{http_code}" \
+    -X PUT \
     -H "Content-Type: application/json" \
-    "$JFROG_URL/artifactory/api/repositories/$key" \
-    -d "$payload" 2>&1)
+    -d @"$template_file" \
+    "/api/repositories/$key" 2>&1) || true
 
-  http_status=$(echo "$response" | tail -1)
-  body=$(echo "$response" | head -n -1)
-
-  if [[ "$http_status" == "200" ]] || [[ "$http_status" == "201" ]]; then
+  if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
+    rm -f "$tmpfile"
     ok "Created $label: $key"
-  else
-    echo -e "${RED}[✗]${NC} Failed to create $label: $key"
-    echo "    HTTP status: $http_status"
-    echo "    Response: $body"
-    echo "    → Create this repository manually in the Artifactory UI."
-    SETUP_HAD_ERRORS=true
+    return
   fi
+
+  echo -e "${RED}[✗]${NC} Failed to create repository: $key (HTTP $http_code)"
+  if [[ -s "$tmpfile" ]]; then
+    echo "    Server response: $(cat "$tmpfile")"
+  fi
+  rm -f "$tmpfile"
+  exit 1
 }
 
-SETUP_HAD_ERRORS=false
+create_repo_if_missing "jfrog-ai-demo-huggingface-remote" \
+  "$REPO_ROOT/config/artifactory/repos/jfrog-ai-demo-huggingface-remote.json" \
+  "remote repository"
 
-# NOTE: packageType must be "huggingfaceml" (not "machinelearning") for HuggingFace repos
-# Reference: https://docs.jfrog.com/artifactory/docs/hugging-face-repositories
+create_repo_if_missing "jfrog-ai-demo-models-local" \
+  "$REPO_ROOT/config/artifactory/repos/jfrog-ai-demo-models-local.json" \
+  "local repository"
 
-create_repo_if_missing "jfrog-ai-demo-huggingface-remote" '{
-  "key": "jfrog-ai-demo-huggingface-remote",
-  "rclass": "remote",
-  "packageType": "huggingfaceml",
-  "url": "https://huggingface.co",
-  "description": "Proxy and cache for Hugging Face Hub models",
-  "xrayIndex": true,
-  "storeArtifactsLocally": true,
-  "assumedOfflinePeriodSecs": 30
-}' "remote repository"
-
-create_repo_if_missing "jfrog-ai-demo-models-local" '{
-  "key": "jfrog-ai-demo-models-local",
-  "rclass": "local",
-  "packageType": "huggingfaceml",
-  "description": "Local store for approved AI models in the ml-code-review project",
-  "xrayIndex": true
-}' "local repository"
-
-create_repo_if_missing "jfrog-ai-demo-virtual" '{
-  "key": "jfrog-ai-demo-virtual",
-  "rclass": "virtual",
-  "packageType": "huggingfaceml",
-  "description": "Unified governed access point. Developers pull from here.",
-  "repositories": ["jfrog-ai-demo-models-local", "jfrog-ai-demo-huggingface-remote"],
-  "defaultDeploymentRepo": "jfrog-ai-demo-models-local"
-}' "virtual repository"
+create_repo_if_missing "jfrog-ai-demo-virtual" \
+  "$REPO_ROOT/config/artifactory/repos/jfrog-ai-demo-virtual.json" \
+  "virtual repository"
 
 # --- Apply curation policy ---
 
@@ -187,11 +178,9 @@ echo "Applying curation policy..."
 
 CURATION_POLICY_FILE="$REPO_ROOT/config/artifactory/curation-policy.json"
 if [[ -f "$CURATION_POLICY_FILE" ]]; then
-  response=$(curl -sf -X POST \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-    -H "Content-Type: application/json" \
-    "$JFROG_URL/xray/api/v1/policies" \
-    -d @"$CURATION_POLICY_FILE" 2>&1) || true
+  response=$(jf xr curl --server-id="$JFROG_SERVER_ID" -sS -X POST -H "Content-Type: application/json" \
+    -d @"$CURATION_POLICY_FILE" \
+    "/api/v1/policies" 2>&1) || true
   if echo "$response" | grep -q "already exists" 2>/dev/null; then
     warn "Curation policy already exists — skipping"
   else
@@ -208,11 +197,9 @@ echo "Applying Xray security policy..."
 
 XRAY_POLICY_FILE="$REPO_ROOT/config/xray/security-policy.json"
 if [[ -f "$XRAY_POLICY_FILE" ]]; then
-  response=$(curl -sf -X POST \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-    -H "Content-Type: application/json" \
-    "$JFROG_URL/xray/api/v1/policies" \
-    -d @"$XRAY_POLICY_FILE" 2>&1) || true
+  response=$(jf xr curl --server-id="$JFROG_SERVER_ID" -sS -X POST -H "Content-Type: application/json" \
+    -d @"$XRAY_POLICY_FILE" \
+    "/api/v1/policies" 2>&1) || true
   if echo "$response" | grep -q "already exists" 2>/dev/null; then
     warn "Xray policy already exists — skipping"
   else
@@ -252,11 +239,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 echo ""
 echo "============================================"
-if [[ "$SETUP_HAD_ERRORS" == "true" ]]; then
-  echo -e "${YELLOW}  Setup complete with warnings — see above${NC}"
-else
-  echo -e "${GREEN}  Automated setup complete!${NC}"
-fi
+echo -e "${GREEN}  Automated setup complete!${NC}"
 echo "============================================"
 echo ""
 echo "  Created:"

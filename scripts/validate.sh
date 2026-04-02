@@ -55,6 +55,16 @@ else
   check_pass "JFROG_ACCESS_TOKEN set (redacted)"
 fi
 
+# Configure CLI from env (same as setup.sh) so jf rt curl / jf xr curl work
+if command -v jf &>/dev/null && [[ -n "${JFROG_URL:-}" ]] && [[ -n "${JFROG_ACCESS_TOKEN:-}" ]]; then
+  JFROG_URL="${JFROG_URL%/}"
+  jf config add "$JFROG_SERVER_ID" \
+    --url "$JFROG_URL" \
+    --access-token "$JFROG_ACCESS_TOKEN" \
+    --interactive=false \
+    --overwrite=true 2>/dev/null || true
+fi
+
 # Test JFrog CLI auth
 if command -v jf &>/dev/null && [[ -n "${JFROG_URL:-}" ]]; then
   JFROG_URL="${JFROG_URL%/}"
@@ -73,16 +83,15 @@ echo "Checking Artifactory repositories..."
 check_repo() {
   local key="$1"
   local label="$2"
-  if [[ -n "${JFROG_URL:-}" ]] && [[ -n "${JFROG_ACCESS_TOKEN:-}" ]]; then
-    JFROG_URL="${JFROG_URL%/}"
-    if curl -sf -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-      "$JFROG_URL/artifactory/api/repositories/$key" >/dev/null 2>&1; then
+  if command -v jf &>/dev/null && [[ -n "${JFROG_URL:-}" ]] && [[ -n "${JFROG_ACCESS_TOKEN:-}" ]]; then
+    if jf rt curl --server-id="$JFROG_SERVER_ID" -sS -f -o /dev/null \
+      "/api/repositories/$key" 2>/dev/null; then
       check_pass "$label: $key"
     else
       check_fail "$label not found: $key — run ./scripts/setup.sh"
     fi
   else
-    check_warn "Cannot check $label: missing credentials"
+    check_warn "Cannot check $label: missing credentials or JFrog CLI"
   fi
 }
 
@@ -98,16 +107,15 @@ echo "Checking policies..."
 check_policy() {
   local name="$1"
   local label="$2"
-  if [[ -n "${JFROG_URL:-}" ]] && [[ -n "${JFROG_ACCESS_TOKEN:-}" ]]; then
-    JFROG_URL="${JFROG_URL%/}"
-    if curl -sf -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-      "$JFROG_URL/xray/api/v1/policies/$name" >/dev/null 2>&1; then
+  if command -v jf &>/dev/null && [[ -n "${JFROG_URL:-}" ]] && [[ -n "${JFROG_ACCESS_TOKEN:-}" ]]; then
+    if jf xr curl --server-id="$JFROG_SERVER_ID" -sS -f -o /dev/null \
+      "/api/v1/policies/$name" 2>/dev/null; then
       check_pass "$label: $name"
     else
       check_fail "$label not found: $name — run ./scripts/setup.sh"
     fi
   else
-    check_warn "Cannot check $label: missing credentials"
+    check_warn "Cannot check $label: missing credentials or JFrog CLI"
   fi
 }
 

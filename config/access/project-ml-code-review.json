@@ -1,0 +1,11 @@
+{
+  "project_key": "ml-code-review",
+  "display_name": "ML Code Review",
+  "description": "Demo project for the AI Catalog governance walkthrough",
+  "storage_quota_bytes": -1,
+  "admin_privileges": {
+    "manage_members": true,
+    "manage_resources": true,
+    "index_resources": true
+  }
+}

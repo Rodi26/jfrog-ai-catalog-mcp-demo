@@ -48,16 +48,32 @@ if [[ -z "${JFROG_URL:-}" ]] || [[ -z "${JFROG_ACCESS_TOKEN:-}" ]]; then
   exit 1
 fi
 
+if ! command -v jf &>/dev/null; then
+  echo -e "${RED}[✗]${NC} JFrog CLI (jf) not found. Install from: https://jfrog.com/getcli/"
+  exit 1
+fi
+
 JFROG_URL="${JFROG_URL%/}"
+
+echo ""
+echo "Configuring JFrog CLI for repository operations..."
+jf config add "$JFROG_SERVER_ID" \
+  --url "$JFROG_URL" \
+  --access-token "$JFROG_ACCESS_TOKEN" \
+  --interactive=false \
+  --overwrite=true 2>/dev/null || true
+
+if ! jf rt ping --server-id="$JFROG_SERVER_ID" &>/dev/null; then
+  echo -e "${RED}[✗]${NC} JFrog CLI authentication failed."
+  exit 1
+fi
 
 echo ""
 echo "Removing demo repositories..."
 
 delete_repo() {
   local key="$1"
-  if curl -sf -X DELETE \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-    "$JFROG_URL/artifactory/api/repositories/$key" >/dev/null 2>&1; then
+  if jf rt repo-delete --quiet --server-id="$JFROG_SERVER_ID" "$key" 2>/dev/null; then
     ok "Deleted repository: $key"
   else
     warn "Repository '$key' not found or already deleted — skipping"
@@ -74,9 +90,8 @@ echo "Removing demo policies..."
 
 delete_policy() {
   local name="$1"
-  if curl -sf -X DELETE \
-    -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" \
-    "$JFROG_URL/xray/api/v1/policies/$name" >/dev/null 2>&1; then
+  if jf xr curl --server-id="$JFROG_SERVER_ID" -sS -f -o /dev/null -X DELETE \
+    "/api/v1/policies/$name" 2>/dev/null; then
     ok "Deleted policy: $name"
   else
     warn "Policy '$name' not found or already deleted — skipping"

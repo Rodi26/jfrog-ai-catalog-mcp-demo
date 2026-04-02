@@ -1,0 +1,11 @@
+{
+  "key": "jfrog-ai-demo-huggingface-remote",
+  "rclass": "remote",
+  "packageType": "huggingfaceml",
+  "url": "https://huggingface.co",
+  "description": "Proxy and cache for Hugging Face Hub models",
+  "xrayIndex": true,
+  "storeArtifactsLocally": true,
+  "assumedOfflinePeriodSecs": 300,
+  "retrievalCachePeriodSecs": 43200
+}
