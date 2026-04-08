@@ -75,21 +75,21 @@ REPO_JSON="$REPO_ROOT/config/artifactory/repos"
 
 echo "Creating JFrog AI Catalog demo repositories..."
 
-create_or_skip "jfrog-ai-demo-huggingface-remote" \
-  "$REPO_JSON/jfrog-ai-demo-huggingface-remote.json" \
+create_or_skip "ml-code-review-huggingface-remote" \
+  "$REPO_JSON/ml-code-review-huggingface-remote.json" \
   "remote repository"
 
-create_or_skip "jfrog-ai-demo-models-local" \
-  "$REPO_JSON/jfrog-ai-demo-models-local.json" \
+create_or_skip "ml-code-review-models-local" \
+  "$REPO_JSON/ml-code-review-models-local.json" \
   "local repository"
 
-create_or_skip "jfrog-ai-demo-virtual" \
-  "$REPO_JSON/jfrog-ai-demo-virtual.json" \
+create_or_skip "ml-code-review-virtual" \
+  "$REPO_JSON/ml-code-review-virtual.json" \
   "virtual repository"
 
 echo ""
 ok "All demo repositories created."
 echo ""
 echo "Virtual repository URL (developers should use this):"
-echo "  $JFROG_URL/artifactory/jfrog-ai-demo-virtual/"
+echo "  $JFROG_URL/artifactory/ml-code-review-virtual/"
 echo ""

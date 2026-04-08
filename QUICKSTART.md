@@ -66,9 +66,9 @@ This script will:
 Expected output:
 ```
 ✓ JFrog CLI authenticated
-✓ Creating HuggingFace remote repository: jfrog-ai-demo-huggingface-remote
-✓ Creating local model repository: jfrog-ai-demo-models-local
-✓ Creating virtual repository: jfrog-ai-demo-virtual
+✓ Creating HuggingFace remote repository: ml-code-review-huggingface-remote
+✓ Creating local model repository: ml-code-review-models-local
+✓ Creating virtual repository: ml-code-review-virtual
 ✓ Curation policy applied
 ✓ Xray security policy applied
 ✓ Demo environment ready

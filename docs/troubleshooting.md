@@ -70,14 +70,14 @@ It checks all critical dependencies. Fix anything it reports red before investig
    ```
 3. Check that models were seeded:
    ```bash
-   jf rt search "jfrog-ai-demo-virtual/**"
+   jf rt search "ml-code-review-virtual/**"
    ```
 
 ---
 
 ## Setup Script Issues
 
-### `setup.sh` fails: "Failed to create repository: jfrog-ai-demo-huggingface-remote"
+### `setup.sh` fails: "Failed to create repository: ml-code-review-huggingface-remote"
 
 **Cause:** This was a bug in earlier versions of the script — `packageType` was incorrectly set to `machinelearning`. The correct value for HuggingFace repositories is `huggingfaceml`.
 
@@ -93,7 +93,7 @@ If the error persists, check the HTTP status and response body printed by the sc
 **Manual fallback:** Create the repository in the Artifactory UI:
 1. Artifactory → Repositories → Add Repository → Remote
 2. Package Type: `HuggingFace ML`
-3. Repository Key: `jfrog-ai-demo-huggingface-remote`
+3. Repository Key: `ml-code-review-huggingface-remote`
 4. URL: `https://huggingface.co`
 5. Enable Xray indexing
 

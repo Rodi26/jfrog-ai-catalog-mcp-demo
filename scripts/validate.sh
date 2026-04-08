@@ -95,9 +95,9 @@ check_repo() {
   fi
 }
 
-check_repo "jfrog-ai-demo-huggingface-remote" "Remote repository"
-check_repo "jfrog-ai-demo-models-local"       "Local repository"
-check_repo "jfrog-ai-demo-virtual"             "Virtual repository"
+check_repo "ml-code-review-huggingface-remote" "Remote repository"
+check_repo "ml-code-review-models-local"       "Local repository"
+check_repo "ml-code-review-virtual"             "Virtual repository"
 
 # --- Policies ---
 

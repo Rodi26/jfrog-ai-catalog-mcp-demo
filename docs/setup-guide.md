@@ -47,7 +47,7 @@ export JFROG_ACCESS_TOKEN=your-admin-token
 
 This creates:
 - **JFrog Project** `ml-code-review` — the demo governance boundary
-- **Artifactory repositories**: `jfrog-ai-demo-huggingface-remote`, `jfrog-ai-demo-models-local`, `jfrog-ai-demo-virtual`
+- **Artifactory repositories**: `ml-code-review-huggingface-remote`, `ml-code-review-models-local`, `ml-code-review-virtual`
 - **Curation policy**: `block-malicious-ai-models`
 - **Xray security policy**: `ai-catalog-security-policy`
 

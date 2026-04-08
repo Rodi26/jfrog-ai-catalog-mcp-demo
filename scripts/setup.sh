@@ -159,16 +159,16 @@ create_repo_if_missing() {
   exit 1
 }
 
-create_repo_if_missing "jfrog-ai-demo-huggingface-remote" \
-  "$REPO_ROOT/config/artifactory/repos/jfrog-ai-demo-huggingface-remote.json" \
+create_repo_if_missing "ml-code-review-huggingface-remote" \
+  "$REPO_ROOT/config/artifactory/repos/ml-code-review-huggingface-remote.json" \
   "remote repository"
 
-create_repo_if_missing "jfrog-ai-demo-models-local" \
-  "$REPO_ROOT/config/artifactory/repos/jfrog-ai-demo-models-local.json" \
+create_repo_if_missing "ml-code-review-models-local" \
+  "$REPO_ROOT/config/artifactory/repos/ml-code-review-models-local.json" \
   "local repository"
 
-create_repo_if_missing "jfrog-ai-demo-virtual" \
-  "$REPO_ROOT/config/artifactory/repos/jfrog-ai-demo-virtual.json" \
+create_repo_if_missing "ml-code-review-virtual" \
+  "$REPO_ROOT/config/artifactory/repos/ml-code-review-virtual.json" \
   "virtual repository"
 
 # --- Assign repositories to project ---
@@ -191,9 +191,9 @@ assign_repo_to_project() {
   fi
 }
 
-assign_repo_to_project "jfrog-ai-demo-huggingface-remote" "$PROJECT_KEY"
-assign_repo_to_project "jfrog-ai-demo-models-local" "$PROJECT_KEY"
-assign_repo_to_project "jfrog-ai-demo-virtual" "$PROJECT_KEY"
+assign_repo_to_project "ml-code-review-huggingface-remote" "$PROJECT_KEY"
+assign_repo_to_project "ml-code-review-models-local" "$PROJECT_KEY"
+assign_repo_to_project "ml-code-review-virtual" "$PROJECT_KEY"
 
 # --- Apply curation policy ---
 
@@ -272,9 +272,9 @@ echo "============================================"
 echo ""
 echo "  Created:"
 echo "  • Project: ml-code-review"
-echo "  • Repository: jfrog-ai-demo-huggingface-remote"
-echo "  • Repository: jfrog-ai-demo-models-local"
-echo "  • Repository: jfrog-ai-demo-virtual"
+echo "  • Repository: ml-code-review-huggingface-remote"
+echo "  • Repository: ml-code-review-models-local"
+echo "  • Repository: ml-code-review-virtual"
 echo "  • Policy: block-malicious-ai-models"
 echo "  • Policy: ai-catalog-security-policy"
 echo ""

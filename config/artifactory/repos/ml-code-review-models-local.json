@@ -1,5 +1,5 @@
 {
-  "key": "jfrog-ai-demo-models-local",
+  "key": "ml-code-review-models-local",
   "projectKey": "ml-code-review",
   "environments": ["DEV"],
   "rclass": "local",

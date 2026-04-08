@@ -6,7 +6,7 @@
 #
 # Usage: ./scripts/reset.sh
 #
-# WARNING: This deletes jfrog-ai-demo-* repositories and their contents.
+# WARNING: This deletes ml-code-review-* repositories and their contents.
 # Only run this on a dedicated demo tenant.
 
 set -uo pipefail
@@ -81,9 +81,9 @@ delete_repo() {
 }
 
 # Delete in order: virtual first, then remote/local (virtual depends on them)
-delete_repo "jfrog-ai-demo-virtual"
-delete_repo "jfrog-ai-demo-models-local"
-delete_repo "jfrog-ai-demo-huggingface-remote"
+delete_repo "ml-code-review-virtual"
+delete_repo "ml-code-review-models-local"
+delete_repo "ml-code-review-huggingface-remote"
 
 echo ""
 echo "Removing demo policies..."

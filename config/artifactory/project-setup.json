@@ -89,7 +89,7 @@
 
   "demo_repositories": [
     {
-      "key": "jfrog-ai-demo-huggingface-remote",
+      "key": "ml-code-review-huggingface-remote",
       "type": "remote",
       "packageType": "huggingfaceml",
       "description": "Proxy and cache for Hugging Face Hub models — governed access point",
@@ -98,22 +98,22 @@
       "storeArtifactsLocally": true
     },
     {
-      "key": "jfrog-ai-demo-models-local",
+      "key": "ml-code-review-models-local",
       "type": "local",
       "packageType": "huggingfaceml",
       "description": "Local store for approved and internally promoted AI models",
       "xrayIndex": true
     },
     {
-      "key": "jfrog-ai-demo-virtual",
+      "key": "ml-code-review-virtual",
       "type": "virtual",
       "packageType": "huggingfaceml",
       "description": "Unified governed access point for all AI models. Developers pull from here.",
       "repositories": [
-        "jfrog-ai-demo-models-local",
-        "jfrog-ai-demo-huggingface-remote"
+        "ml-code-review-models-local",
+        "ml-code-review-huggingface-remote"
       ],
-      "defaultDeploymentRepo": "jfrog-ai-demo-models-local"
+      "defaultDeploymentRepo": "ml-code-review-models-local"
     }
   ]
 }

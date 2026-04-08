@@ -1,5 +1,5 @@
 {
-  "key": "jfrog-ai-demo-huggingface-remote",
+  "key": "ml-code-review-huggingface-remote",
   "projectKey": "ml-code-review",
   "environments": ["DEV"],
   "rclass": "remote",
